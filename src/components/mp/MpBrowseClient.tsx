@@ -13,7 +13,7 @@ interface MpBrowseClientProps {
 
 /**
  * Client-side component for browsing and filtering MPs by party.
- * Renders party filter pills and a responsive grid of MP cards.
+ * Adapted from Tailwind Plus "Contact cards with small portraits" grid list.
  * @param members - Array of all parliament members from the database
  */
 export default function MpBrowseClient({ members }: MpBrowseClientProps) {
@@ -62,41 +62,48 @@ export default function MpBrowseClient({ members }: MpBrowseClientProps) {
 
       {/* Results count */}
       <p className="text-sm text-base-content/60 mb-4">
-        Visar {filteredMembers.length} ledamoter
+        Visar {filteredMembers.length} ledamöter
       </p>
 
-      {/* MP card grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {/* MP card grid — adapted from "Contact cards with small portraits" */}
+      <ul
+        role="list"
+        className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+      >
         {filteredMembers.map((member) => (
-          <Link
+          <li
             key={member.intressent_id}
-            href={`/ledamot/${member.intressent_id}`}
-            className="group flex flex-col items-center text-center p-4 rounded-lg border border-base-200 bg-base-100 hover:bg-base-200 transition-colors"
+            className="col-span-1 divide-y divide-base-200 rounded-lg bg-base-100 shadow-sm"
           >
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-base-300 mb-3">
+            <Link
+              href={`/ledamot/${member.intressent_id}`}
+              className="flex w-full items-center justify-between space-x-6 p-6 hover:bg-base-200 transition-colors rounded-t-lg"
+            >
+              <div className="flex-1 truncate">
+                <div className="flex items-center space-x-3">
+                  <h3 className="truncate text-sm font-medium text-base-content">
+                    {member.tilltalsnamn} {member.efternamn}
+                  </h3>
+                  <PartyBadge parti={member.parti} size="sm" />
+                </div>
+                <p className="mt-1 truncate text-sm text-base-content/60">
+                  {member.valkrets}
+                </p>
+              </div>
               <img
-                src={`/portraits/${member.intressent_id}.jpg`}
                 alt={`${member.tilltalsnamn} ${member.efternamn}`}
-                className="w-full h-full object-cover"
+                src={`/portraits/${member.intressent_id}.jpg`}
+                className="size-10 shrink-0 rounded-full bg-base-300"
                 loading="lazy"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =
-                    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-size='24' fill='%23999'%3E%F0%9F%91%A4%3C/text%3E%3C/svg%3E";
+                    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-size='16' fill='%23999'%3E%F0%9F%91%A4%3C/text%3E%3C/svg%3E";
                 }}
               />
-            </div>
-            <h3 className="font-medium text-sm text-base-content group-hover:text-primary transition-colors">
-              {member.tilltalsnamn} {member.efternamn}
-            </h3>
-            <div className="mt-1">
-              <PartyBadge parti={member.parti} size="sm" />
-            </div>
-            <span className="text-xs text-base-content/50 mt-1">
-              {member.valkrets}
-            </span>
-          </Link>
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

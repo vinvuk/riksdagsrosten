@@ -141,57 +141,56 @@ export default async function LedamotDetailPage({
 
   const { member, votes, stats } = data;
 
+  const profileStats = [
+    { label: "Voteringar", value: stats.totalVotes },
+    { label: "Närvaro", value: `${stats.attendance}%` },
+    { label: "Ja", value: stats.ja },
+    { label: "Nej", value: stats.nej },
+    { label: "Avstår", value: stats.avstar },
+  ];
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      {/* Profile Header */}
-      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-8">
-        <PortraitImage
-          src={`/portraits/${member.intressent_id}.jpg`}
-          alt={`${member.tilltalsnamn} ${member.efternamn}`}
-          size="lg"
-        />
-        <div className="text-center sm:text-left">
-          <h1 className="text-3xl font-bold text-base-content">
-            {member.tilltalsnamn} {member.efternamn}
-          </h1>
-          <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-            <PartyBadge parti={member.parti} size="md" showName />
+      {/* Profile card — adapted from Tailwind Plus "Card with avatar and stats" */}
+      <div className="overflow-hidden rounded-lg bg-base-100 shadow-sm mb-8">
+        <div className="bg-base-100 p-6">
+          <div className="sm:flex sm:items-center sm:justify-between">
+            <div className="sm:flex sm:space-x-5">
+              <div className="shrink-0 mx-auto sm:mx-0">
+                <PortraitImage
+                  src={`/portraits/${member.intressent_id}.jpg`}
+                  alt={`${member.tilltalsnamn} ${member.efternamn}`}
+                  size="md"
+                />
+              </div>
+              <div className="mt-4 text-center sm:mt-0 sm:pt-1 sm:text-left">
+                <p className="text-xl font-bold text-base-content sm:text-2xl">
+                  {member.tilltalsnamn} {member.efternamn}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                  <PartyBadge parti={member.parti} size="md" showName />
+                </div>
+                <p className="text-sm font-medium text-base-content/60 mt-1">
+                  {member.valkrets}
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-base-content/60 mt-1">{member.valkrets}</p>
         </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
-        <div className="bg-base-100 rounded-lg border border-base-200 p-4 text-center">
-          <div className="text-2xl font-bold text-base-content">
-            {stats.totalVotes.toLocaleString("sv-SE")}
-          </div>
-          <div className="text-sm text-base-content/60">Voteringar</div>
-        </div>
-        <div className="bg-base-100 rounded-lg border border-base-200 p-4 text-center">
-          <div className="text-2xl font-bold text-primary">
-            {stats.attendance}%
-          </div>
-          <div className="text-sm text-base-content/60">Närvaro</div>
-        </div>
-        <div className="bg-base-100 rounded-lg border border-base-200 p-4 text-center">
-          <div className="text-2xl font-bold text-success">
-            {stats.ja.toLocaleString("sv-SE")}
-          </div>
-          <div className="text-sm text-base-content/60">Ja</div>
-        </div>
-        <div className="bg-base-100 rounded-lg border border-base-200 p-4 text-center">
-          <div className="text-2xl font-bold text-error">
-            {stats.nej.toLocaleString("sv-SE")}
-          </div>
-          <div className="text-sm text-base-content/60">Nej</div>
-        </div>
-        <div className="bg-base-100 rounded-lg border border-base-200 p-4 text-center">
-          <div className="text-2xl font-bold text-warning">
-            {stats.avstar.toLocaleString("sv-SE")}
-          </div>
-          <div className="text-sm text-base-content/60">Avstår</div>
+        <div className="grid grid-cols-2 divide-y divide-base-200 border-t border-base-200 bg-base-200/30 sm:grid-cols-5 sm:divide-x sm:divide-y-0">
+          {profileStats.map((stat) => (
+            <div
+              key={stat.label}
+              className="px-6 py-5 text-center text-sm font-medium"
+            >
+              <span className="text-base-content">
+                {typeof stat.value === "number"
+                  ? stat.value.toLocaleString("sv-SE")
+                  : stat.value}
+              </span>{" "}
+              <span className="text-base-content/60">{stat.label}</span>
+            </div>
+          ))}
         </div>
       </div>
 

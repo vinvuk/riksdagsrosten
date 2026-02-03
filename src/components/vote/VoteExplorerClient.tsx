@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { COMMITTEE_MAP, SESSIONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { VotingEvent } from "@/lib/types";
@@ -13,7 +14,7 @@ interface VoteExplorerClientProps {
 
 /**
  * Client-side voting event explorer with filtering by topic and session.
- * Displays a filterable list of vote cards with result bars.
+ * Vote list adapted from Tailwind Plus "Stacked list in card with links".
  * @param votingEvents - Array of voting events with document titles
  */
 export default function VoteExplorerClient({
@@ -73,7 +74,7 @@ export default function VoteExplorerClient({
         {/* Session filter */}
         <div>
           <label className="text-sm font-medium text-base-content/70 mb-2 block">
-            Riksmotet
+            Riksmöte
           </label>
           <div className="flex flex-wrap gap-2">
             <button
@@ -108,46 +109,61 @@ export default function VoteExplorerClient({
         Visar {filteredEvents.length} voteringar
       </p>
 
-      {/* Vote cards */}
-      <div className="space-y-4">
-        {filteredEvents.map((ve) => {
-          const committee = COMMITTEE_MAP[ve.organ];
-          return (
-            <Link
-              key={ve.votering_id}
-              href={`/votering/${ve.votering_id}`}
-              className="block p-4 rounded-lg border border-base-200 bg-base-100 hover:bg-base-200 transition-colors"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                {committee && (
-                  <span className="badge badge-outline text-xs">
-                    {committee.name}
-                  </span>
-                )}
-                <span className="text-xs text-base-content/50">
-                  {ve.beteckning} | {ve.datum}
-                </span>
-              </div>
-              <h3 className="font-semibold text-base-content mb-2 line-clamp-2">
-                {ve.rubrik || ve.titel}
-              </h3>
-              <VoteResultBar
-                ja={ve.ja}
-                nej={ve.nej}
-                avstar={ve.avstar}
-                franvarande={ve.franvarande}
-                showLabels
-                height="sm"
-              />
-            </Link>
-          );
-        })}
-        {filteredEvents.length === 0 && (
-          <div className="text-center py-12 text-base-content/50">
-            Inga voteringar matchar dina filter.
-          </div>
-        )}
-      </div>
+      {/* Vote list — adapted from "Stacked list in card with links" */}
+      {filteredEvents.length === 0 ? (
+        <div className="text-center py-12 text-base-content/50">
+          Inga voteringar matchar dina filter.
+        </div>
+      ) : (
+        <ul
+          role="list"
+          className="divide-y divide-base-200 overflow-hidden bg-base-100 shadow-sm ring-1 ring-base-200 sm:rounded-xl"
+        >
+          {filteredEvents.map((ve) => {
+            const committee = COMMITTEE_MAP[ve.organ];
+            return (
+              <li key={ve.votering_id}>
+                <Link
+                  href={`/votering/${ve.votering_id}`}
+                  className="relative flex justify-between gap-x-6 px-4 py-5 hover:bg-base-200 sm:px-6"
+                >
+                  <div className="flex min-w-0 gap-x-4 flex-1">
+                    <div className="min-w-0 flex-auto">
+                      <p className="text-sm/6 font-semibold text-base-content">
+                        {ve.rubrik || ve.titel}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs/5 text-base-content/60">
+                        {committee && (
+                          <span className="badge badge-outline badge-xs">
+                            {committee.name}
+                          </span>
+                        )}
+                        <span>{ve.beteckning}</span>
+                        <span>{ve.datum}</span>
+                      </div>
+                      <div className="mt-2 max-w-md">
+                        <VoteResultBar
+                          ja={ve.ja}
+                          nej={ve.nej}
+                          avstar={ve.avstar}
+                          franvarande={ve.franvarande}
+                          height="sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center">
+                    <ChevronRight
+                      aria-hidden="true"
+                      className="size-5 flex-none text-base-content/40"
+                    />
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

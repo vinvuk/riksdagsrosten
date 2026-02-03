@@ -4,109 +4,107 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Menu, X, Vote } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-const NAV_ITEMS = [
-  { href: "/ledamot", label: "Ledamöter" },
-  { href: "/votering", label: "Voteringar" },
-  { href: "/parti", label: "Partier" },
-  { href: "/amne", label: "Ämnen" },
+const navigation = [
+  { name: "Ledamöter", href: "/ledamot" },
+  { name: "Voteringar", href: "/votering" },
+  { name: "Partier", href: "/parti" },
+  { name: "Ämnen", href: "/amne" },
 ];
 
 /**
- * Site header with navigation, search bar, and mobile menu.
- * Adapted from Tailwind Plus "With search" navbar template.
+ * Site header with navigation and mobile menu.
+ * Adapted from Tailwind Plus "With left-aligned nav" header.
  */
 export default function Header() {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <nav className="bg-base-100 shadow-sm sticky top-0 z-50">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 justify-between">
-          {/* Logo + desktop nav */}
-          <div className="flex">
-            <Link href="/" className="flex shrink-0 items-center gap-2">
-              <Vote className="h-7 w-7 text-primary" />
-              <span className="hidden sm:block font-bold text-lg text-base-content">
-                Riksdagsrösten
-              </span>
-            </Link>
-            <div className="hidden lg:ml-8 lg:flex lg:space-x-6">
-              {NAV_ITEMS.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium",
-                    pathname.startsWith(item.href)
-                      ? "border-primary text-base-content"
-                      : "border-transparent text-base-content/60 hover:border-base-300 hover:text-base-content"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Search bar */}
-          <div className="flex flex-1 items-center justify-center px-2 lg:ml-6 lg:justify-end">
-            <Link
-              href="/sok"
-              className="grid w-full max-w-lg grid-cols-1 lg:max-w-xs"
-            >
-              <div className="col-start-1 row-start-1 flex items-center rounded-md bg-base-200 py-1.5 pr-3 pl-10 text-sm text-base-content/50 hover:bg-base-300 transition-colors cursor-pointer">
-                Sök ledamot, votering eller ämne...
-              </div>
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none col-start-1 row-start-1 ml-3 size-5 self-center text-base-content/40"
-              />
-            </Link>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="flex items-center lg:hidden">
-            <button
-              type="button"
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="btn btn-ghost btn-sm"
-              aria-label="Öppna meny"
-            >
-              {mobileOpen ? (
-                <X className="size-6" />
-              ) : (
-                <Menu className="size-6" />
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div className="lg:hidden border-t border-base-200">
-          <div className="space-y-1 pt-2 pb-3">
-            {NAV_ITEMS.map((item) => (
+    <header className="bg-base-100 shadow-sm sticky top-0 z-50">
+      <nav
+        aria-label="Global"
+        className="mx-auto flex max-w-7xl items-center justify-between p-4 lg:px-8"
+      >
+        <div className="flex items-center gap-x-12">
+          <Link href="/" className="-m-1.5 p-1.5 flex items-center gap-2">
+            <Vote className="h-7 w-7 text-primary" />
+            <span className="hidden sm:block font-bold text-lg text-base-content">
+              Riksdagsrösten
+            </span>
+          </Link>
+          <div className="hidden lg:flex lg:gap-x-8">
+            {navigation.map((item) => (
               <Link
-                key={item.href}
+                key={item.name}
                 href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "block border-l-4 py-2 pr-4 pl-3 text-base font-medium",
+                className={
                   pathname.startsWith(item.href)
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-transparent text-base-content/60 hover:border-base-300 hover:bg-base-200 hover:text-base-content"
-                )}
+                    ? "text-sm/6 font-semibold text-primary"
+                    : "text-sm/6 font-semibold text-base-content hover:text-primary"
+                }
               >
-                {item.label}
+                {item.name}
               </Link>
             ))}
           </div>
         </div>
+        <div className="hidden lg:flex lg:items-center lg:gap-x-6">
+          <Link
+            href="/sok"
+            className="flex items-center gap-2 text-sm/6 font-semibold text-base-content/60 hover:text-base-content"
+          >
+            <Search className="size-4" />
+            Sök
+          </Link>
+        </div>
+        <div className="flex lg:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-base-content/70"
+          >
+            <span className="sr-only">Öppna meny</span>
+            {mobileMenuOpen ? (
+              <X aria-hidden="true" className="size-6" />
+            ) : (
+              <Menu aria-hidden="true" className="size-6" />
+            )}
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile menu panel */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden border-t border-base-200">
+          <div className="space-y-1 px-6 py-6">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={
+                  pathname.startsWith(item.href)
+                    ? "-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-primary bg-primary/5"
+                    : "-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-base-content hover:bg-base-200"
+                }
+              >
+                {item.name}
+              </Link>
+            ))}
+            <div className="pt-4 border-t border-base-200 mt-4">
+              <Link
+                href="/sok"
+                onClick={() => setMobileMenuOpen(false)}
+                className="-mx-3 flex items-center gap-2 rounded-lg px-3 py-2.5 text-base/7 font-semibold text-base-content hover:bg-base-200"
+              >
+                <Search className="size-5" />
+                Sök
+              </Link>
+            </div>
+          </div>
+        </div>
       )}
-    </nav>
+    </header>
   );
 }
