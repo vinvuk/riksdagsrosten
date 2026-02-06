@@ -1,5 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import { getDb } from "@/lib/db";
+import { getDb, convertDates } from "@/lib/db";
 import type { VotingEventWithTitle } from "@/lib/types";
 import StatsGrid, { dashboardStats } from "@/components/dashboard/StatsGrid";
 import PartyGrid from "@/components/dashboard/PartyGrid";
@@ -10,9 +10,9 @@ import { Button } from "@/components/catalyst/button";
 
 interface SessionStats {
   rm: string;
-  voteCount: number;
-  bifallCount: number;
-  avslagCount: number;
+  votecount: number;
+  bifallcount: number;
+  avslagcount: number;
 }
 
 interface MonthlyStats {
@@ -26,115 +26,91 @@ interface MonthlyStats {
  * Fetches dashboard data from the database.
  * @returns Stats, party counts, and recent votes
  */
-function getDashboardData() {
-  const db = getDb();
-  try {
-    // Get total counts
-    const votingCount = (
-      db.prepare("SELECT COUNT(*) as count FROM voting_events").get() as {
-        count: number;
-      }
-    ).count;
+async function getDashboardData() {
+  const sql = getDb();
 
-    const memberCount = (
-      db.prepare("SELECT COUNT(*) as count FROM members").get() as {
-        count: number;
-      }
-    ).count;
+  // Get total counts
+  const votingCountResult = await sql`SELECT COUNT(*) as count FROM voting_events`;
+  const votingCount = Number(votingCountResult[0].count);
 
-    // Get individual votes count
-    const voteCount = (
-      db.prepare("SELECT COUNT(*) as count FROM votes").get() as {
-        count: number;
-      }
-    ).count;
+  const memberCountResult = await sql`SELECT COUNT(*) as count FROM members`;
+  const memberCount = Number(memberCountResult[0].count);
 
-    // Get documents count
-    const documentCount = (
-      db.prepare("SELECT COUNT(*) as count FROM documents").get() as {
-        count: number;
-      }
-    ).count;
+  const voteCountResult = await sql`SELECT COUNT(*) as count FROM votes`;
+  const voteCount = Number(voteCountResult[0].count);
 
-    // Get member counts per party
-    const partyCounts = db
-      .prepare(
-        `SELECT parti, COUNT(*) as count
-         FROM members
-         GROUP BY parti
-         ORDER BY count DESC`
-      )
-      .all() as { parti: string; count: number }[];
+  const documentCountResult = await sql`SELECT COUNT(*) as count FROM documents`;
+  const documentCount = Number(documentCountResult[0].count);
 
-    // Get 5 most recent voting events
-    const recentVotes = db
-      .prepare(
-        `SELECT ve.*, d.titel
-         FROM voting_events ve
-         LEFT JOIN documents d ON ve.dok_id = d.dok_id
-         ORDER BY ve.datum DESC
-         LIMIT 5`
-      )
-      .all() as VotingEventWithTitle[];
+  // Get member counts per party
+  const partyCounts = await sql`
+    SELECT parti, COUNT(*) as count
+    FROM members
+    GROUP BY parti
+    ORDER BY count DESC
+  ` as { parti: string; count: number }[];
 
-    // Get session statistics for chart
-    const sessionStats = db
-      .prepare(
-        `SELECT
-           rm,
-           COUNT(*) as voteCount,
-           SUM(CASE WHEN ja > nej THEN 1 ELSE 0 END) as bifallCount,
-           SUM(CASE WHEN nej > ja THEN 1 ELSE 0 END) as avslagCount
-         FROM voting_events
-         GROUP BY rm
-         ORDER BY rm`
-      )
-      .all() as SessionStats[];
+  // Get 5 most recent voting events
+  const rawRecentVotes = await sql`
+    SELECT ve.*, d.titel
+    FROM voting_events ve
+    LEFT JOIN documents d ON ve.dok_id = d.dok_id
+    ORDER BY ve.datum DESC
+    LIMIT 5
+  `;
+  const recentVotes = convertDates(rawRecentVotes) as VotingEventWithTitle[];
 
-    // Get monthly vote trends
-    const monthlyStats = db
-      .prepare(
-        `SELECT
-           strftime('%Y-%m', datum) as month,
-           COUNT(*) as voteringar,
-           SUM(CASE WHEN ja > nej THEN 1 ELSE 0 END) as bifall,
-           SUM(CASE WHEN nej > ja THEN 1 ELSE 0 END) as avslag
-         FROM voting_events
-         WHERE datum IS NOT NULL
-         GROUP BY month
-         ORDER BY month`
-      )
-      .all() as MonthlyStats[];
+  // Get session statistics for chart
+  const sessionStats = await sql`
+    SELECT
+      rm,
+      COUNT(*) as voteCount,
+      SUM(CASE WHEN ja > nej THEN 1 ELSE 0 END) as bifallCount,
+      SUM(CASE WHEN nej > ja THEN 1 ELSE 0 END) as avslagCount
+    FROM voting_events
+    GROUP BY rm
+    ORDER BY rm
+  ` as SessionStats[];
 
-    return {
-      stats: {
-        votingCount,
-        memberCount,
-        voteCount,
-        documentCount,
-      },
-      partyCounts,
-      recentVotes,
-      sessionStats,
-      monthlyStats,
-    };
-  } finally {
-    db.close();
-  }
+  // Get monthly vote trends (TO_CHAR for PostgreSQL instead of strftime)
+  const monthlyStats = await sql`
+    SELECT
+      TO_CHAR(datum::date, 'YYYY-MM') as month,
+      COUNT(*) as voteringar,
+      SUM(CASE WHEN ja > nej THEN 1 ELSE 0 END) as bifall,
+      SUM(CASE WHEN nej > ja THEN 1 ELSE 0 END) as avslag
+    FROM voting_events
+    WHERE datum IS NOT NULL
+    GROUP BY TO_CHAR(datum::date, 'YYYY-MM')
+    ORDER BY month
+  ` as MonthlyStats[];
+
+  return {
+    stats: {
+      votingCount,
+      memberCount,
+      voteCount,
+      documentCount,
+    },
+    partyCounts,
+    recentVotes,
+    sessionStats,
+    monthlyStats,
+  };
 }
 
 /**
  * Home page dashboard displaying overview stats, party grid, and recent votes.
  */
-export default function HomePage() {
-  const { stats, partyCounts, recentVotes, sessionStats, monthlyStats } = getDashboardData();
+export default async function HomePage() {
+  const { stats, partyCounts, recentVotes, sessionStats, monthlyStats } = await getDashboardData();
 
   // Prepare chart data
   const sessionChartData = sessionStats.map((s) => ({
     name: s.rm,
-    voteringar: s.voteCount,
-    bifall: s.bifallCount,
-    avslag: s.avslagCount,
+    voteringar: Number(s.votecount),
+    bifall: Number(s.bifallcount),
+    avslag: Number(s.avslagcount),
   }));
 
   return (

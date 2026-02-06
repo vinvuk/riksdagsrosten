@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import { getDb } from "@/lib/db";
-import { COMMITTEE_MAP, PARTIES } from "@/lib/constants";
+import { getDb, convertDates } from "@/lib/db";
+import { COMMITTEE_MAP } from "@/lib/constants";
 import type {
   VotingEvent,
   PartyVoteSummary,
@@ -14,29 +14,22 @@ import PartyBadge from "@/components/party/PartyBadge";
 import VoteDetailAccordion from "@/components/vote/VoteDetailAccordion";
 import VoteDetailTabs from "@/components/vote/VoteDetailTabs";
 import { Button } from "@/components/catalyst/button";
-import { Badge } from "@/components/catalyst/badge";
 
 /**
  * Generates static params for all vote detail pages.
  * Required for static export (output: "export").
  * @returns Array of params objects containing each votering_id
  */
-export function generateStaticParams(): { id: string }[] {
-  const db = getDb();
-  try {
-    const rows = db
-      .prepare("SELECT votering_id FROM voting_events")
-      .all() as { votering_id: string }[];
-    return rows.map((r) => ({ id: r.votering_id }));
-  } finally {
-    db.close();
-  }
+export async function generateStaticParams(): Promise<{ id: string }[]> {
+  const sql = getDb();
+  const rows = await sql`SELECT votering_id FROM voting_events` as { votering_id: string }[];
+  return rows.map((r) => ({ id: r.votering_id }));
 }
 
 /**
  * Generates metadata for a vote detail page.
  * @param params - Route params containing the votering_id
- * @returns Metadata with the vote's rubrik as title
+ * @returns Metadata with the vote's rubrik as title, OG, Twitter, and JSON-LD
  */
 export async function generateMetadata({
   params,
@@ -44,21 +37,46 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const db = getDb();
-  try {
-    const ve = db
-      .prepare(
-        "SELECT rubrik, beteckning FROM voting_events WHERE votering_id = ?"
-      )
-      .get(id) as { rubrik: string | null; beteckning: string } | undefined;
-    if (!ve) return { title: "Votering" };
-    return {
-      title: ve.rubrik || ve.beteckning,
-      description: `Resultat för votering ${ve.beteckning}`,
-    };
-  } finally {
-    db.close();
-  }
+  const sql = getDb();
+  const rows = await sql`
+    SELECT ve.rubrik, ve.beteckning, ve.datum, ve.ja, ve.nej, d.titel
+    FROM voting_events ve
+    LEFT JOIN documents d ON ve.dok_id = d.dok_id
+    WHERE ve.votering_id = ${id}
+  ` as { rubrik: string | null; beteckning: string; datum: string | null; ja: number; nej: number; titel: string | null }[];
+
+  const ve = rows[0];
+  if (!ve) return { title: "Votering" };
+
+  const title = ve.rubrik || ve.titel || ve.beteckning;
+  const outcome = ve.ja > ve.nej ? "Bifall" : "Avslag";
+  const description = `${ve.beteckning}: ${title}. Resultat: ${outcome} (${ve.ja} ja, ${ve.nej} nej). Se hur riksdagens partier och ledamöter röstade.`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title: `${title} | Riksdagsrösten`,
+      description,
+      type: "article",
+      url: `https://riksdagsrosten.se/votering/${id}`,
+      publishedTime: ve.datum || undefined,
+      images: [
+        {
+          url: `/votering/${id}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: `Votering: ${title}`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} | Riksdagsrösten`,
+      description,
+      images: [`/votering/${id}/opengraph-image`],
+    },
+  };
 }
 
 /**
@@ -66,50 +84,39 @@ export async function generateMetadata({
  * @param id - The votering_id
  * @returns Object with all vote detail data, or null if not found
  */
-function getVoteDetailData(id: string) {
-  const db = getDb();
-  try {
-    const votingEvent = db
-      .prepare(
-        `SELECT ve.*, d.titel, d.dokument_url
-         FROM voting_events ve
-         LEFT JOIN documents d ON ve.dok_id = d.dok_id
-         WHERE ve.votering_id = ?`
-      )
-      .get(id) as
-      | (VotingEvent & { titel: string; dokument_url: string | null })
-      | undefined;
+async function getVoteDetailData(id: string) {
+  const sql = getDb();
 
-    if (!votingEvent) return null;
+  const rawVotingEvents = await sql`
+    SELECT ve.*, d.titel, d.dokument_url
+    FROM voting_events ve
+    LEFT JOIN documents d ON ve.dok_id = d.dok_id
+    WHERE ve.votering_id = ${id}
+  `;
+  const votingEvents = convertDates(rawVotingEvents) as (VotingEvent & { titel: string; dokument_url: string | null })[];
 
-    const proposal = db
-      .prepare(
-        "SELECT forslag, rubrik FROM proposals WHERE votering_id = ?"
-      )
-      .get(id) as
-      | { forslag: string | null; rubrik: string | null }
-      | undefined;
+  const votingEvent = votingEvents[0];
+  if (!votingEvent) return null;
 
-    const partySummaries = db
-      .prepare(
-        "SELECT * FROM party_vote_summary WHERE votering_id = ? ORDER BY parti"
-      )
-      .all(id) as PartyVoteSummary[];
+  const proposals = await sql`
+    SELECT forslag, rubrik FROM proposals WHERE votering_id = ${id}
+  ` as { forslag: string | null; rubrik: string | null }[];
 
-    const mpVotes = db
-      .prepare(
-        `SELECT v.intressent_id, m.tilltalsnamn, m.efternamn, m.parti, v.rost
-         FROM votes v
-         JOIN members m ON v.intressent_id = m.intressent_id
-         WHERE v.votering_id = ?
-         ORDER BY m.parti, m.efternamn`
-      )
-      .all(id) as MpVoteInEvent[];
+  const proposal = proposals[0];
 
-    return { votingEvent, proposal, partySummaries, mpVotes };
-  } finally {
-    db.close();
-  }
+  const partySummaries = await sql`
+    SELECT * FROM party_vote_summary WHERE votering_id = ${id} ORDER BY parti
+  ` as PartyVoteSummary[];
+
+  const mpVotes = await sql`
+    SELECT v.intressent_id, m.tilltalsnamn, m.efternamn, m.parti, v.rost
+    FROM votes v
+    JOIN members m ON v.intressent_id = m.intressent_id
+    WHERE v.votering_id = ${id}
+    ORDER BY m.parti, m.efternamn
+  ` as MpVoteInEvent[];
+
+  return { votingEvent, proposal, partySummaries, mpVotes };
 }
 
 /**
@@ -123,7 +130,7 @@ export default async function VoteringDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = getVoteDetailData(id);
+  const data = await getVoteDetailData(id);
 
   if (!data) {
     return (
@@ -140,6 +147,39 @@ export default async function VoteringDetailPage({
 
   const { votingEvent, proposal, partySummaries, mpVotes } = data;
   const committee = COMMITTEE_MAP[votingEvent.organ] || { name: votingEvent.organ, slug: votingEvent.organ.toLowerCase() };
+
+  // JSON-LD structured data for VoteAction/Event
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    "@id": `https://riksdagsrosten.se/votering/${id}`,
+    name: votingEvent.rubrik || votingEvent.titel || votingEvent.beteckning,
+    description: proposal?.forslag || `Votering ${votingEvent.beteckning}`,
+    startDate: votingEvent.datum,
+    endDate: votingEvent.datum,
+    eventStatus: "https://schema.org/EventScheduled",
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    location: {
+      "@type": "Place",
+      name: "Riksdagshuset",
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: "Riksgatan 1",
+        addressLocality: "Stockholm",
+        postalCode: "100 12",
+        addressCountry: "SE",
+      },
+    },
+    organizer: {
+      "@type": "GovernmentOrganization",
+      name: committee.name || "Sveriges riksdag",
+    },
+    about: {
+      "@type": "GovernmentService",
+      name: votingEvent.beteckning,
+      serviceType: "Parlamentarisk votering",
+    },
+  };
 
   // Group MP votes by party
   const votesByParty: Record<string, MpVoteInEvent[]> = {};
@@ -203,6 +243,10 @@ export default async function VoteringDetailPage({
 
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Back link */}
       <Link
         href="/votering"

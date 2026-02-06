@@ -10,40 +10,33 @@ export const metadata: Metadata = {
 
 interface CommitteeStats {
   organ: string;
-  voteCount: number;
+  votecount: number;
 }
 
 /**
  * Fetches committee vote statistics from the database.
  * @returns Array of committee codes with their vote counts
  */
-function getCommitteeStats(): CommitteeStats[] {
-  const db = getDb();
-  try {
-    const stats = db
-      .prepare(
-        `SELECT organ, COUNT(*) as voteCount
-         FROM voting_events
-         GROUP BY organ
-         ORDER BY voteCount DESC`
-      )
-      .all() as CommitteeStats[];
-    return stats;
-  } finally {
-    db.close();
-  }
+async function getCommitteeStats(): Promise<CommitteeStats[]> {
+  const sql = getDb();
+  return await sql`
+    SELECT organ, COUNT(*) as voteCount
+    FROM voting_events
+    GROUP BY organ
+    ORDER BY voteCount DESC
+  ` as CommitteeStats[];
 }
 
 /**
  * Committee/topic overview page displaying a grid of all committees.
  */
-export default function AmnePage() {
-  const committeeStats = getCommitteeStats();
+export default async function AmnePage() {
+  const committeeStats = await getCommitteeStats();
 
   // Create a map of vote counts for easy lookup
   const voteCounts: Record<string, number> = {};
   for (const stat of committeeStats) {
-    voteCounts[stat.organ] = stat.voteCount;
+    voteCounts[stat.organ] = Number(stat.votecount);
   }
 
   return (

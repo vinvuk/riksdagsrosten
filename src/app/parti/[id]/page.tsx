@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, Users } from "lucide-react";
 import { notFound } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { getDb, convertDates } from "@/lib/db";
 import { PARTIES } from "@/lib/constants";
 import type { Member } from "@/lib/types";
 import PartyBadge from "@/components/party/PartyBadge";
@@ -21,7 +21,7 @@ export function generateStaticParams(): { id: string }[] {
 /**
  * Generates metadata for a party page.
  * @param params - Route params containing the party code
- * @returns Metadata with the party name as title
+ * @returns Metadata with the party name as title, OG, Twitter, and JSON-LD
  */
 export async function generateMetadata({
   params,
@@ -32,9 +32,38 @@ export async function generateMetadata({
   const partyCode = id.toUpperCase();
   const party = PARTIES[partyCode];
   if (!party) return { title: "Parti" };
+
+  const sql = getDb();
+  const countRows = await sql`
+    SELECT COUNT(*) as count FROM members WHERE parti = ${partyCode}
+  ` as { count: number }[];
+  const memberCount = Number(countRows[0]?.count) || 0;
+
+  const description = `Se hur ${party.name} (${partyCode}) röstat i riksdagen 2022-2026. ${memberCount} riksdagsledamöter, rösthistorik och statistik.`;
+
   return {
     title: party.name,
-    description: `Ledamöter och rösthistorik för ${party.name}`,
+    description,
+    openGraph: {
+      title: `${party.name} | Riksdagsrösten`,
+      description,
+      type: "website",
+      url: `https://riksdagsrosten.se/parti/${id}`,
+      images: [
+        {
+          url: `/parti/${id}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: `${party.name} - Röststatistik`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${party.name} | Riksdagsrösten`,
+      description,
+      images: [`/parti/${id}/opengraph-image`],
+    },
   };
 }
 
@@ -43,58 +72,57 @@ export async function generateMetadata({
  * @param partyCode - The party code (uppercase)
  * @returns Object with members and vote stats, or null if not found
  */
-function getPartyData(partyCode: string) {
+async function getPartyData(partyCode: string) {
   const party = PARTIES[partyCode];
   if (!party) return null;
 
-  const db = getDb();
-  try {
-    const members = db
-      .prepare(
-        `SELECT * FROM members WHERE parti = ? ORDER BY efternamn, tilltalsnamn`
-      )
-      .all(partyCode) as Member[];
+  const sql = getDb();
 
-    // Get vote stats for this party
-    const voteStats = db
-      .prepare(
-        `SELECT
-           SUM(ja) as totalJa,
-           SUM(nej) as totalNej,
-           SUM(avstar) as totalAvstar,
-           SUM(franvarande) as totalFranvarande,
-           COUNT(*) as totalVotes
-         FROM party_vote_summary
-         WHERE parti = ?`
-      )
-      .get(partyCode) as {
-        totalJa: number;
-        totalNej: number;
-        totalAvstar: number;
-        totalFranvarande: number;
-        totalVotes: number;
-      };
+  const members = await sql`
+    SELECT * FROM members WHERE parti = ${partyCode} ORDER BY efternamn, tilltalsnamn
+  ` as Member[];
 
-    // Get monthly voting trends for this party
-    const monthlyTrends = db
-      .prepare(
-        `SELECT
-           strftime('%Y-%m', ve.datum) as month,
-           SUM(pvs.ja) as ja,
-           SUM(pvs.nej) as nej,
-           SUM(pvs.avstar) as avstar
-         FROM party_vote_summary pvs
-         JOIN voting_events ve ON pvs.votering_id = ve.votering_id
-         WHERE pvs.parti = ? AND ve.datum IS NOT NULL
-         GROUP BY month
-         ORDER BY month`
-      )
-      .all(partyCode) as { month: string; ja: number; nej: number; avstar: number }[];
+  // Get vote stats for this party
+  const voteStatsRows = await sql`
+    SELECT
+      SUM(ja) as totalJa,
+      SUM(nej) as totalNej,
+      SUM(avstar) as totalAvstar,
+      SUM(franvarande) as totalFranvarande,
+      COUNT(*) as totalVotes
+    FROM party_vote_summary
+    WHERE parti = ${partyCode}
+  ` as {
+    totalja: number;
+    totalnej: number;
+    totalavstar: number;
+    totalfranvarande: number;
+    totalvotes: number;
+  }[];
 
-    return { party, members, voteStats, monthlyTrends };
-  } finally {
-    db.close();
-  }
+  const voteStats = {
+    totalJa: Number(voteStatsRows[0]?.totalja) || 0,
+    totalNej: Number(voteStatsRows[0]?.totalnej) || 0,
+    totalAvstar: Number(voteStatsRows[0]?.totalavstar) || 0,
+    totalFranvarande: Number(voteStatsRows[0]?.totalfranvarande) || 0,
+    totalVotes: Number(voteStatsRows[0]?.totalvotes) || 0,
+  };
+
+  // Get monthly voting trends for this party (TO_CHAR for PostgreSQL)
+  const monthlyTrends = await sql`
+    SELECT
+      TO_CHAR(ve.datum::date, 'YYYY-MM') as month,
+      SUM(pvs.ja) as ja,
+      SUM(pvs.nej) as nej,
+      SUM(pvs.avstar) as avstar
+    FROM party_vote_summary pvs
+    JOIN voting_events ve ON pvs.votering_id = ve.votering_id
+    WHERE pvs.parti = ${partyCode} AND ve.datum IS NOT NULL
+    GROUP BY TO_CHAR(ve.datum::date, 'YYYY-MM')
+    ORDER BY month
+  ` as { month: string; ja: number; nej: number; avstar: number }[];
+
+  return { party, members, voteStats, monthlyTrends };
 }
 
 /**
@@ -108,7 +136,7 @@ export default async function PartiDetailPage({
 }) {
   const { id } = await params;
   const partyCode = id.toUpperCase();
-  const data = getPartyData(partyCode);
+  const data = await getPartyData(partyCode);
 
   if (!data) {
     notFound();
@@ -116,8 +144,40 @@ export default async function PartiDetailPage({
 
   const { party, members, voteStats, monthlyTrends } = data;
 
+  // JSON-LD structured data for Organization (Political Party)
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `https://riksdagsrosten.se/parti/${id}`,
+    name: party.name,
+    alternateName: partyCode,
+    description: `${party.name} är ett svenskt politiskt parti representerat i riksdagen med ${members.length} ledamöter.`,
+    memberOf: {
+      "@type": "GovernmentOrganization",
+      name: "Sveriges riksdag",
+      url: "https://www.riksdagen.se",
+    },
+    numberOfEmployees: {
+      "@type": "QuantitativeValue",
+      value: members.length,
+      unitText: "riksdagsledamöter",
+    },
+    location: {
+      "@type": "Place",
+      name: "Sverige",
+      address: {
+        "@type": "PostalAddress",
+        addressCountry: "SE",
+      },
+    },
+  };
+
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Back link */}
       <Link
         href="/parti"

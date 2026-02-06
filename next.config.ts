@@ -1,11 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export",
+  // Use server-side rendering with Neon PostgreSQL
+  // Remove "export" to enable dynamic routes
   images: {
     unoptimized: true,
   },
-  staticPageGenerationTimeout: 300,
 };
 
 export default nextConfig;

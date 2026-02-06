@@ -2,36 +2,30 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, MapPin, Calendar, Users, AlertTriangle, ChevronRight } from "lucide-react";
 import { notFound } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { getDb, convertDates } from "@/lib/db";
 import { PARTIES } from "@/lib/constants";
 import type { Member, MpVoteRow, VoteStats } from "@/lib/types";
 import PartyBadge from "@/components/party/PartyBadge";
 import PortraitImage from "@/components/mp/PortraitImage";
 import VoteResultBar from "@/components/vote/VoteResultBar";
 import MpVoteHistory from "@/components/mp/MpVoteHistory";
-import AttendanceHeatmap from "@/components/charts/AttendanceHeatmap";
+
 import { Badge } from "@/components/catalyst/badge";
 
 /**
  * Generates static params for all member pages.
  * @returns Array of params objects containing each member's intressent_id
  */
-export function generateStaticParams(): { id: string }[] {
-  const db = getDb();
-  try {
-    const members = db
-      .prepare("SELECT intressent_id FROM members")
-      .all() as { intressent_id: string }[];
-    return members.map((m) => ({ id: m.intressent_id }));
-  } finally {
-    db.close();
-  }
+export async function generateStaticParams(): Promise<{ id: string }[]> {
+  const sql = getDb();
+  const members = await sql`SELECT intressent_id FROM members` as { intressent_id: string }[];
+  return members.map((m) => ({ id: m.intressent_id }));
 }
 
 /**
  * Generates metadata for a member page.
  * @param params - Route params containing the member's intressent_id
- * @returns Metadata with the member's name as title
+ * @returns Metadata with the member's name as title, OG, Twitter, and JSON-LD
  */
 export async function generateMetadata({
   params,
@@ -39,22 +33,42 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const db = getDb();
-  try {
-    const member = db
-      .prepare("SELECT tilltalsnamn, efternamn, parti FROM members WHERE intressent_id = ?")
-      .get(id) as Pick<Member, "tilltalsnamn" | "efternamn" | "parti"> | undefined;
+  const sql = getDb();
+  const members = await sql`
+    SELECT tilltalsnamn, efternamn, parti, valkrets, fodd_ar FROM members WHERE intressent_id = ${id}
+  ` as Pick<Member, "tilltalsnamn" | "efternamn" | "parti" | "valkrets" | "fodd_ar">[];
 
-    if (!member) return { title: "Ledamot" };
+  const member = members[0];
+  if (!member) return { title: "Ledamot" };
 
-    const party = PARTIES[member.parti];
-    return {
-      title: `${member.tilltalsnamn} ${member.efternamn}`,
-      description: `Rösthistorik och statistik för ${member.tilltalsnamn} ${member.efternamn} (${party?.name || member.parti})`,
-    };
-  } finally {
-    db.close();
-  }
+  const party = PARTIES[member.parti];
+  const fullName = `${member.tilltalsnamn} ${member.efternamn}`;
+  const description = `Se hur ${fullName} (${party?.name || member.parti}) har röstat i riksdagen. Rösthistorik, närvaro och partilojalitet för riksdagsledamoten från ${member.valkrets}.`;
+
+  return {
+    title: fullName,
+    description,
+    openGraph: {
+      title: `${fullName} | Riksdagsrösten`,
+      description,
+      type: "profile",
+      url: `https://riksdagsrosten.se/ledamot/${id}`,
+      images: [
+        {
+          url: `/ledamot/${id}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: `${fullName} - ${party?.name || member.parti}`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${fullName} | Riksdagsrösten`,
+      description,
+      images: [`/ledamot/${id}/opengraph-image`],
+    },
+  };
 }
 
 /**
@@ -62,139 +76,115 @@ export async function generateMetadata({
  * @param memberId - The member's intressent_id
  * @returns Object with member info, vote stats, and recent votes, or null if not found
  */
-function getMemberData(memberId: string) {
-  const db = getDb();
-  try {
-    const member = db
-      .prepare("SELECT * FROM members WHERE intressent_id = ?")
-      .get(memberId) as Member | undefined;
+async function getMemberData(memberId: string) {
+  const sql = getDb();
 
-    if (!member) return null;
+  const members = await sql`
+    SELECT * FROM members WHERE intressent_id = ${memberId}
+  ` as Member[];
 
-    // Get vote statistics
-    const statsRow = db
-      .prepare(
-        `SELECT
-           COUNT(*) as totalVotes,
-           SUM(CASE WHEN rost = 'Ja' THEN 1 ELSE 0 END) as ja,
-           SUM(CASE WHEN rost = 'Nej' THEN 1 ELSE 0 END) as nej,
-           SUM(CASE WHEN rost = 'Avstår' THEN 1 ELSE 0 END) as avstar,
-           SUM(CASE WHEN rost = 'Frånvarande' THEN 1 ELSE 0 END) as franvarande
-         FROM votes
-         WHERE intressent_id = ?`
+  const member = members[0];
+  if (!member) return null;
+
+  // Get vote statistics
+  const statsRows = await sql`
+    SELECT
+      COUNT(*) as totalVotes,
+      SUM(CASE WHEN rost = 'Ja' THEN 1 ELSE 0 END) as ja,
+      SUM(CASE WHEN rost = 'Nej' THEN 1 ELSE 0 END) as nej,
+      SUM(CASE WHEN rost = 'Avstår' THEN 1 ELSE 0 END) as avstar,
+      SUM(CASE WHEN rost = 'Frånvarande' THEN 1 ELSE 0 END) as franvarande
+    FROM votes
+    WHERE intressent_id = ${memberId}
+  ` as { totalvotes: number; ja: number; nej: number; avstar: number; franvarande: number }[];
+
+  const statsRow = statsRows[0];
+  const stats: VoteStats = {
+    totalVotes: Number(statsRow?.totalvotes) || 0,
+    ja: Number(statsRow?.ja) || 0,
+    nej: Number(statsRow?.nej) || 0,
+    avstar: Number(statsRow?.avstar) || 0,
+    franvarande: Number(statsRow?.franvarande) || 0,
+    attendance: Number(statsRow?.totalvotes) > 0
+      ? Math.round(((Number(statsRow.totalvotes) - (Number(statsRow.franvarande) || 0)) / Number(statsRow.totalvotes)) * 100)
+      : 0,
+  };
+
+  // Get all votes with document info
+  const rawVotes = await sql`
+    SELECT
+      v.votering_id,
+      v.rost,
+      ve.beteckning,
+      ve.organ,
+      ve.rubrik,
+      ve.datum,
+      d.titel
+    FROM votes v
+    JOIN voting_events ve ON v.votering_id = ve.votering_id
+    LEFT JOIN documents d ON ve.dok_id = d.dok_id
+    WHERE v.intressent_id = ${memberId}
+    ORDER BY ve.datum DESC
+  `;
+  const votes = convertDates(rawVotes) as MpVoteRow[];
+
+  // Calculate loyalty score (how often MP votes with party majority)
+  const loyaltyRows = await sql`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE
+        WHEN v.rost = 'Ja' AND pvs.ja > pvs.nej AND pvs.ja > pvs.avstar THEN 1
+        WHEN v.rost = 'Nej' AND pvs.nej > pvs.ja AND pvs.nej > pvs.avstar THEN 1
+        WHEN v.rost = 'Avstår' AND pvs.avstar > pvs.ja AND pvs.avstar > pvs.nej THEN 1
+        ELSE 0
+      END) as withParty
+    FROM votes v
+    JOIN party_vote_summary pvs ON v.votering_id = pvs.votering_id AND pvs.parti = ${member.parti}
+    WHERE v.intressent_id = ${memberId} AND v.rost != 'Frånvarande'
+  ` as { total: number; withparty: number }[];
+
+  const loyaltyData = loyaltyRows[0];
+  const loyaltyScore = Number(loyaltyData?.total) > 0
+    ? Math.round((Number(loyaltyData.withparty) / Number(loyaltyData.total)) * 100)
+    : 0;
+
+  // Get deviant votes (where MP voted against party majority)
+  const rawDeviantVotes = await sql`
+    SELECT
+      v.votering_id,
+      v.rost,
+      ve.beteckning,
+      ve.rubrik,
+      ve.datum,
+      d.titel,
+      CASE
+        WHEN pvs.ja > pvs.nej AND pvs.ja > pvs.avstar THEN 'Ja'
+        WHEN pvs.nej > pvs.ja AND pvs.nej > pvs.avstar THEN 'Nej'
+        ELSE 'Avstår'
+      END as partyMajority
+    FROM votes v
+    JOIN voting_events ve ON v.votering_id = ve.votering_id
+    LEFT JOIN documents d ON ve.dok_id = d.dok_id
+    JOIN party_vote_summary pvs ON v.votering_id = pvs.votering_id AND pvs.parti = ${member.parti}
+    WHERE v.intressent_id = ${memberId}
+      AND v.rost != 'Frånvarande'
+      AND (
+        (v.rost = 'Ja' AND (pvs.nej > pvs.ja OR pvs.avstar > pvs.ja))
+        OR (v.rost = 'Nej' AND (pvs.ja > pvs.nej OR pvs.avstar > pvs.nej))
+        OR (v.rost = 'Avstår' AND (pvs.ja > pvs.avstar OR pvs.nej > pvs.avstar))
       )
-      .get(memberId) as {
-        totalVotes: number;
-        ja: number;
-        nej: number;
-        avstar: number;
-        franvarande: number;
-      };
+    ORDER BY ve.datum DESC
+    LIMIT 10
+  `;
+  const deviantVotes = convertDates(rawDeviantVotes) as (MpVoteRow & { partymajority: string })[];
 
-    const stats: VoteStats = {
-      totalVotes: statsRow.totalVotes || 0,
-      ja: statsRow.ja || 0,
-      nej: statsRow.nej || 0,
-      avstar: statsRow.avstar || 0,
-      franvarande: statsRow.franvarande || 0,
-      attendance: statsRow.totalVotes > 0
-        ? Math.round(((statsRow.totalVotes - (statsRow.franvarande || 0)) / statsRow.totalVotes) * 100)
-        : 0,
-    };
-
-    // Get all votes with document info
-    const votes = db
-      .prepare(
-        `SELECT
-           v.votering_id,
-           v.rost,
-           ve.beteckning,
-           ve.organ,
-           ve.rubrik,
-           ve.datum,
-           d.titel
-         FROM votes v
-         JOIN voting_events ve ON v.votering_id = ve.votering_id
-         LEFT JOIN documents d ON ve.dok_id = d.dok_id
-         WHERE v.intressent_id = ?
-         ORDER BY ve.datum DESC`
-      )
-      .all(memberId) as MpVoteRow[];
-
-    // Calculate loyalty score (how often MP votes with party majority)
-    const loyaltyData = db
-      .prepare(
-        `SELECT
-           COUNT(*) as total,
-           SUM(CASE
-             WHEN v.rost = 'Ja' AND pvs.ja > pvs.nej AND pvs.ja > pvs.avstar THEN 1
-             WHEN v.rost = 'Nej' AND pvs.nej > pvs.ja AND pvs.nej > pvs.avstar THEN 1
-             WHEN v.rost = 'Avstår' AND pvs.avstar > pvs.ja AND pvs.avstar > pvs.nej THEN 1
-             ELSE 0
-           END) as withParty
-         FROM votes v
-         JOIN party_vote_summary pvs ON v.votering_id = pvs.votering_id AND pvs.parti = ?
-         WHERE v.intressent_id = ? AND v.rost != 'Frånvarande'`
-      )
-      .get(member.parti, memberId) as { total: number; withParty: number };
-
-    const loyaltyScore = loyaltyData.total > 0
-      ? Math.round((loyaltyData.withParty / loyaltyData.total) * 100)
-      : 0;
-
-    // Get deviant votes (where MP voted against party majority)
-    const deviantVotes = db
-      .prepare(
-        `SELECT
-           v.votering_id,
-           v.rost,
-           ve.beteckning,
-           ve.rubrik,
-           ve.datum,
-           d.titel,
-           CASE
-             WHEN pvs.ja > pvs.nej AND pvs.ja > pvs.avstar THEN 'Ja'
-             WHEN pvs.nej > pvs.ja AND pvs.nej > pvs.avstar THEN 'Nej'
-             ELSE 'Avstår'
-           END as partyMajority
-         FROM votes v
-         JOIN voting_events ve ON v.votering_id = ve.votering_id
-         LEFT JOIN documents d ON ve.dok_id = d.dok_id
-         JOIN party_vote_summary pvs ON v.votering_id = pvs.votering_id AND pvs.parti = ?
-         WHERE v.intressent_id = ?
-           AND v.rost != 'Frånvarande'
-           AND (
-             (v.rost = 'Ja' AND (pvs.nej > pvs.ja OR pvs.avstar > pvs.ja))
-             OR (v.rost = 'Nej' AND (pvs.ja > pvs.nej OR pvs.avstar > pvs.nej))
-             OR (v.rost = 'Avstår' AND (pvs.ja > pvs.avstar OR pvs.nej > pvs.avstar))
-           )
-         ORDER BY ve.datum DESC
-         LIMIT 10`
-      )
-      .all(member.parti, memberId) as (MpVoteRow & { partyMajority: string })[];
-
-    // Get attendance data for heatmap
-    const attendanceData = db
-      .prepare(
-        `SELECT DISTINCT
-           ve.datum as date,
-           CASE WHEN v.rost != 'Frånvarande' THEN 1 ELSE 0 END as present
-         FROM votes v
-         JOIN voting_events ve ON v.votering_id = ve.votering_id
-         WHERE v.intressent_id = ? AND ve.datum IS NOT NULL
-         ORDER BY ve.datum`
-      )
-      .all(memberId) as { date: string; present: number }[];
-
-    const attendance = attendanceData.map((d) => ({
-      date: d.date,
-      present: d.present === 1,
-    }));
-
-    return { member, stats, votes, loyaltyScore, deviantVotes, attendance };
-  } finally {
-    db.close();
-  }
+  return {
+    member,
+    stats,
+    votes,
+    loyaltyScore,
+    deviantVotes: deviantVotes.map(v => ({ ...v, partyMajority: v.partymajority })),
+  };
 }
 
 /**
@@ -207,17 +197,48 @@ export default async function LedamotDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = getMemberData(id);
+  const data = await getMemberData(id);
 
   if (!data) {
     notFound();
   }
 
-  const { member, stats, votes, loyaltyScore, deviantVotes, attendance } = data;
+  const { member, stats, votes, loyaltyScore, deviantVotes } = data;
   const party = PARTIES[member.parti] || { name: member.parti, hex: "#71717A", bg: "bg-zinc-500", text: "text-white" };
+
+  // JSON-LD structured data for Person
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": `https://riksdagsrosten.se/ledamot/${id}`,
+    name: `${member.tilltalsnamn} ${member.efternamn}`,
+    givenName: member.tilltalsnamn,
+    familyName: member.efternamn,
+    jobTitle: "Riksdagsledamot",
+    worksFor: {
+      "@type": "Organization",
+      name: party.name,
+    },
+    memberOf: {
+      "@type": "GovernmentOrganization",
+      name: "Sveriges riksdag",
+      url: "https://www.riksdagen.se",
+    },
+    image: `https://riksdagsrosten.se/portraits/${member.intressent_id}.jpg`,
+    birthDate: member.fodd_ar ? `${member.fodd_ar}` : undefined,
+    address: {
+      "@type": "PostalAddress",
+      addressRegion: member.valkrets,
+      addressCountry: "SE",
+    },
+  };
 
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Back link */}
       <Link
         href="/ledamot"
@@ -321,17 +342,6 @@ export default async function LedamotDetailPage({
         </div>
       </div>
 
-      {/* Attendance heatmap */}
-      {attendance.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-            Närvaro över tid
-          </h2>
-          <div className="rounded-lg bg-white dark:bg-zinc-900 p-4 ring-1 ring-zinc-200 dark:ring-zinc-700">
-            <AttendanceHeatmap data={attendance} />
-          </div>
-        </div>
-      )}
 
       {/* Deviant votes */}
       {deviantVotes.length > 0 && (

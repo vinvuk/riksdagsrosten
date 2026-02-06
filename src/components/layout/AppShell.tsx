@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,7 +8,6 @@ import {
   Vote,
   Landmark,
   BookOpen,
-  Search,
   Info,
   GitCompare,
 } from "lucide-react";
@@ -20,7 +18,6 @@ import {
   Sidebar,
   SidebarHeader,
   SidebarBody,
-  SidebarFooter,
   SidebarSection,
   SidebarList,
   SidebarItem,
@@ -34,11 +31,8 @@ import {
   NavbarSpacer,
 } from "@/components/ui/Navbar";
 import ThemeToggle from "@/components/ui/ThemeToggle";
-import CommandPalette from "@/components/search/CommandPalette";
 import SkipToContent from "@/components/ui/SkipToContent";
 import BackToTop from "@/components/ui/BackToTop";
-import type { Member, VotingEventWithTitle } from "@/lib/types";
-
 interface NavItem {
   name: string;
   href: string;
@@ -75,14 +69,8 @@ function getPageTitle(pathname: string): string {
   return nav?.name ?? "Riksdagsrösten";
 }
 
-interface SearchData {
-  members: Member[];
-  votes: VotingEventWithTitle[];
-}
-
 interface AppShellProps {
   children: React.ReactNode;
-  searchData: SearchData;
 }
 
 /**
@@ -90,9 +78,8 @@ interface AppShellProps {
  * Provides dark sidebar navigation, mobile drawer, pagination, and an aside column.
  * @param children - Page content rendered in the main area
  */
-export default function AppShell({ children, searchData }: AppShellProps) {
+export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
-  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <>
@@ -107,6 +94,7 @@ export default function AppShell({ children, searchData }: AppShellProps) {
               >
                 Riksdagsrösten
               </Link>
+              <ThemeToggle className="ml-auto text-zinc-400 hover:text-white hover:bg-white/5 p-1.5 rounded-lg max-lg:hidden" />
             </SidebarHeader>
             <SidebarBody>
               {/* Primary navigation */}
@@ -148,9 +136,6 @@ export default function AppShell({ children, searchData }: AppShellProps) {
                 </SidebarList>
               </SidebarSection>
             </SidebarBody>
-            <SidebarFooter className="max-lg:hidden">
-              <ThemeToggle className="text-zinc-400 hover:text-white hover:bg-white/5 p-1.5 rounded-lg" />
-            </SidebarFooter>
           </Sidebar>
         }
         navbar={
@@ -160,47 +145,16 @@ export default function AppShell({ children, searchData }: AppShellProps) {
             </NavbarSection>
             <NavbarSpacer />
             <NavbarSection>
-              <NavbarItem
-                href="/sok"
-                aria-label="Sök"
-                className="text-zinc-400 hover:text-zinc-100"
-              >
-                <Search className="size-5" />
-              </NavbarItem>
               <ThemeToggle className="text-zinc-400 hover:text-zinc-100 p-1.5 rounded-lg hover:bg-white/5" />
             </NavbarSection>
           </Navbar>
         }
       >
-        {/* Desktop header with search and theme toggle */}
-        <header className="hidden lg:sticky lg:top-0 lg:z-40 lg:flex h-16 shrink-0 items-center gap-x-4 border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 sm:px-6 lg:px-8 lg:rounded-t-lg">
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            className="flex flex-1 items-center gap-x-2"
-          >
-            <Search className="size-5 text-zinc-400" />
-            <span className="text-sm text-zinc-400">Sök...</span>
-            <kbd className="ml-auto hidden lg:inline-flex items-center gap-0.5 rounded border border-zinc-300 dark:border-zinc-600 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[0.625rem] font-medium text-zinc-500 dark:text-zinc-400">
-              <span className="text-xs">⌘</span>K
-            </kbd>
-          </button>
-          <div className="flex items-center gap-x-4">
-            <ThemeToggle className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800" />
-          </div>
-        </header>
         <main id="main-content">
           {children}
         </main>
       </SidebarLayout>
       <BackToTop />
-
-      {/* Command palette (⌘K) */}
-      <CommandPalette
-        data={searchData}
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-      />
     </>
   );
 }

@@ -13,22 +13,18 @@ export const metadata: Metadata = {
  * Fetches all parliament members sorted by last name.
  * @returns Array of Member objects
  */
-function getAllMembers(): Member[] {
-  const db = getDb();
-  try {
-    return db
-      .prepare("SELECT * FROM members ORDER BY efternamn, tilltalsnamn")
-      .all() as Member[];
-  } finally {
-    db.close();
-  }
+async function getAllMembers(): Promise<Member[]> {
+  const sql = getDb();
+  return await sql`
+    SELECT * FROM members ORDER BY efternamn, tilltalsnamn
+  ` as Member[];
 }
 
 /**
  * Ledamöter listing page — server component that fetches all members
  * and delegates rendering to the LedamoterClient component.
  */
-export default function LedamoterPage() {
-  const members = getAllMembers();
+export default async function LedamoterPage() {
+  const members = await getAllMembers();
   return <LedamoterClient members={members} />;
 }

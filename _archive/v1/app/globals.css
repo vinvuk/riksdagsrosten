@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes: dark --default, light;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+[data-theme="dark"] {
+  /* Primary: Swedish blue */
+  --p: 209 86% 50%;
+  --pf: 209 86% 42%;
+  --pc: 0 0% 100%;
+
+  /* Secondary: Slate */
+  --s: 215 20% 55%;
+  --sf: 215 20% 45%;
+  --sc: 0 0% 100%;
+
+  /* Accent: Swedish gold */
+  --a: 47 80% 55%;
+  --af: 47 80% 45%;
+  --ac: 0 0% 10%;
+
+  /* Neutral */
+  --n: 220 14% 15%;
+  --nf: 220 14% 10%;
+  --nc: 210 10% 80%;
+
+  /* Base: Dark backgrounds — wider gaps for clear surface elevation */
+  --b1: 222 14% 9%;
+  --b2: 222 13% 16%;
+  --b3: 222 12% 24%;
+  --bc: 210 10% 92%;
+
+  /* Success: Muted teal-green for dark readability */
+  --su: 160 45% 46%;
+  --suc: 160 45% 96%;
+
+  /* Error: Soft rose — legible on dark */
+  --er: 0 55% 60%;
+  --erc: 0 55% 96%;
+
+  /* Warning: Warm amber instead of harsh yellow */
+  --wa: 35 85% 55%;
+  --wac: 35 85% 10%;
+
+  /* Info: Cool slate-blue */
+  --in: 209 50% 55%;
+  --inc: 209 50% 96%;
+}
+
+[data-theme="light"] {
+  /* Primary: Swedish blue — deeper for white bg contrast */
+  --p: 209 86% 45%;
+  --pf: 209 86% 38%;
+  --pc: 0 0% 100%;
+
+  /* Secondary: Slate — darker for light bg readability */
+  --s: 215 20% 40%;
+  --sf: 215 20% 32%;
+  --sc: 0 0% 100%;
+
+  /* Accent: Swedish gold — deeper on white */
+  --a: 47 80% 48%;
+  --af: 47 80% 40%;
+  --ac: 0 0% 100%;
+
+  /* Neutral: light grays */
+  --n: 220 14% 25%;
+  --nf: 220 14% 20%;
+  --nc: 0 0% 98%;
+
+  /* Base: Light backgrounds */
+  --b1: 0 0% 100%;
+  --b2: 220 14% 96%;
+  --b3: 220 12% 91%;
+  --bc: 220 14% 12%;
+
+  /* Success: Deeper green for white bg */
+  --su: 160 55% 36%;
+  --suc: 160 55% 98%;
+
+  /* Error: Deeper red */
+  --er: 0 65% 50%;
+  --erc: 0 65% 98%;
+
+  /* Warning: Deeper amber */
+  --wa: 35 85% 45%;
+  --wac: 35 85% 98%;
+
+  /* Info: Deeper blue */
+  --in: 209 60% 45%;
+  --inc: 209 60% 98%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Theme-scoped hero gradient blob opacity */
+[data-theme="light"] .hero-blob {
+  opacity: 0.15;
+}
+[data-theme="dark"] .hero-blob {
+  opacity: 0.3;
+}

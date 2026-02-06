@@ -11,35 +11,28 @@ export const metadata: Metadata = {
 
 interface PartyStats {
   parti: string;
-  memberCount: number;
+  membercount: number;
 }
 
 /**
  * Fetches party statistics from the database.
  * @returns Array of party codes with their member counts
  */
-function getPartyStats(): PartyStats[] {
-  const db = getDb();
-  try {
-    const stats = db
-      .prepare(
-        `SELECT parti, COUNT(*) as memberCount
-         FROM members
-         GROUP BY parti
-         ORDER BY memberCount DESC`
-      )
-      .all() as PartyStats[];
-    return stats;
-  } finally {
-    db.close();
-  }
+async function getPartyStats(): Promise<PartyStats[]> {
+  const sql = getDb();
+  return await sql`
+    SELECT parti, COUNT(*) as memberCount
+    FROM members
+    GROUP BY parti
+    ORDER BY memberCount DESC
+  ` as PartyStats[];
 }
 
 /**
  * Party overview page displaying a grid of all 8 parties.
  */
-export default function PartiPage() {
-  const partyStats = getPartyStats();
+export default async function PartiPage() {
+  const partyStats = await getPartyStats();
 
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
@@ -53,7 +46,7 @@ export default function PartiPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {partyStats.map(({ parti, memberCount }) => {
+        {partyStats.map(({ parti, membercount }) => {
           const party = PARTIES[parti];
           if (!party) return null;
           return (
@@ -67,7 +60,7 @@ export default function PartiPage() {
                 {party.name}
               </h2>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                {memberCount} ledamöter
+                {membercount} ledamöter
               </p>
             </Link>
           );

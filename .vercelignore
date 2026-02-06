@@ -1,0 +1,14 @@
+# Data files (SQLite database - not needed for Neon PostgreSQL)
+data/
+
+# Build output
+out/
+.next/
+
+# Scripts
+scripts/
+
+# Development files
+*.md
+*.sql
+.env.local.example

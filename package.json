@@ -15,12 +15,15 @@
     "pipeline:votes": "tsx scripts/03-fetch-votes.ts",
     "pipeline:proposals": "tsx scripts/04-fetch-proposals.ts",
     "pipeline:link": "tsx scripts/06-link-documents.ts",
-    "pipeline:search": "tsx scripts/05-build-search-index.ts"
+    "pipeline:search": "tsx scripts/05-build-search-index.ts",
+    "migrate:neon": "tsx scripts/migrate-to-neon.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "@neondatabase/serverless": "^1.0.2",
     "better-sqlite3": "^12.6.2",
     "clsx": "^2.1.1",
+    "dotenv": "^17.2.4",
     "framer-motion": "^12.31.0",
     "fuse.js": "^7.1.0",
     "lucide-react": "^0.563.0",

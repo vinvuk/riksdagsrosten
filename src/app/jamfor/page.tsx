@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getDb } from "@/lib/db";
+import { getDb, convertDates } from "@/lib/db";
 import { PARTIES } from "@/lib/constants";
 import PartyComparisonClient from "@/components/party/PartyComparisonClient";
 
@@ -24,37 +24,31 @@ interface PartyVoteData {
  * Fetches party vote summaries for comparison.
  * @returns Array of party vote data per voting event
  */
-function getPartyComparisonData(): PartyVoteData[] {
-  const db = getDb();
-  try {
-    const data = db
-      .prepare(
-        `SELECT
-           pvs.votering_id,
-           ve.beteckning,
-           ve.rubrik,
-           ve.datum,
-           pvs.parti,
-           pvs.ja,
-           pvs.nej,
-           pvs.avstar,
-           pvs.franvarande
-         FROM party_vote_summary pvs
-         JOIN voting_events ve ON pvs.votering_id = ve.votering_id
-         ORDER BY ve.datum DESC, pvs.parti`
-      )
-      .all() as PartyVoteData[];
-    return data;
-  } finally {
-    db.close();
-  }
+async function getPartyComparisonData(): Promise<PartyVoteData[]> {
+  const sql = getDb();
+  const raw = await sql`
+    SELECT
+      pvs.votering_id,
+      ve.beteckning,
+      ve.rubrik,
+      ve.datum,
+      pvs.parti,
+      pvs.ja,
+      pvs.nej,
+      pvs.avstar,
+      pvs.franvarande
+    FROM party_vote_summary pvs
+    JOIN voting_events ve ON pvs.votering_id = ve.votering_id
+    ORDER BY ve.datum DESC, pvs.parti
+  `;
+  return convertDates(raw) as PartyVoteData[];
 }
 
 /**
  * Party comparison page allowing users to compare voting patterns.
  */
-export default function JamforPage() {
-  const partyVoteData = getPartyComparisonData();
+export default async function JamforPage() {
+  const partyVoteData = await getPartyComparisonData();
 
   // Get list of parties that have vote data (exclude "-" / partilösa)
   const partiesWithData = [...new Set(partyVoteData.map((d) => d.parti))].filter(
