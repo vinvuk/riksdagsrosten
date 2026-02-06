@@ -1,0 +1,132 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+import type { VotingEventWithTitle } from "@/lib/types";
+import VoteResultBar from "@/components/vote/VoteResultBar";
+import VoteOutcomeBadge from "@/components/vote/VoteOutcomeBadge";
+import ClientPagination from "@/components/ui/ClientPagination";
+import { cn } from "@/lib/utils";
+
+const ITEMS_PER_PAGE = 20;
+
+interface TopicVoteListProps {
+  votes: VotingEventWithTitle[];
+}
+
+/**
+ * Dot separator for metadata rows.
+ */
+function DotSeparator() {
+  return (
+    <svg
+      viewBox="0 0 2 2"
+      className="size-0.5 flex-none fill-zinc-400 dark:fill-zinc-500"
+    >
+      <circle r={1} cx={1} cy={1} />
+    </svg>
+  );
+}
+
+/**
+ * Paginated list of votes for a topic/committee.
+ * @param votes - Array of voting events to display
+ */
+export default function TopicVoteList({ votes }: TopicVoteListProps) {
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.ceil(votes.length / ITEMS_PER_PAGE);
+  const paginatedVotes = votes.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE
+  );
+
+  if (votes.length === 0) {
+    return (
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        Inga voteringar registrerade.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <ul
+        role="list"
+        className="divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-700 overflow-hidden"
+      >
+        {paginatedVotes.map((ve) => {
+          const outcome =
+            ve.ja > ve.nej ? "bifall" : ve.nej > ve.ja ? "avslag" : "lika";
+
+          return (
+            <li key={ve.votering_id}>
+              <Link
+                href={`/votering/${ve.votering_id}`}
+                className="relative flex items-center gap-x-4 bg-white dark:bg-zinc-900 px-4 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+              >
+                <div className="min-w-0 flex-auto">
+                  {/* Title row with status dot */}
+                  <div className="flex items-center gap-x-3">
+                    <div
+                      className={cn(
+                        "flex-none rounded-full p-1",
+                        outcome === "bifall" &&
+                          "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                        outcome === "avslag" &&
+                          "bg-red-500/10 text-red-600 dark:text-red-400",
+                        outcome === "lika" &&
+                          "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                      )}
+                    >
+                      <div className="size-2 rounded-full bg-current" />
+                    </div>
+                    <p className="min-w-0 text-sm/6 font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                      {ve.rubrik || ve.titel}
+                    </p>
+                  </div>
+
+                  {/* Metadata row */}
+                  <div className="mt-2 flex items-center gap-x-2.5 text-xs/5 text-zinc-500 dark:text-zinc-400">
+                    <p className="whitespace-nowrap">{ve.beteckning}</p>
+                    <DotSeparator />
+                    <p className="whitespace-nowrap">{ve.datum}</p>
+                  </div>
+
+                  {/* Vote bar */}
+                  <div className="mt-3">
+                    <VoteResultBar
+                      ja={ve.ja}
+                      nej={ve.nej}
+                      avstar={ve.avstar}
+                      franvarande={ve.franvarande}
+                      height="sm"
+                    />
+                  </div>
+                </div>
+
+                <VoteOutcomeBadge ja={ve.ja} nej={ve.nej} />
+                <ChevronRight
+                  aria-hidden="true"
+                  className="size-5 flex-none text-zinc-400 dark:text-zinc-500"
+                />
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      {votes.length > ITEMS_PER_PAGE && (
+        <ClientPagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={votes.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          onPageChange={setPage}
+          className="mt-4"
+        />
+      )}
+    </div>
+  );
+}

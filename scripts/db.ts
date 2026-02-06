@@ -34,11 +34,35 @@ export function createSchema(db: Database.Database): void {
       dok_id       TEXT PRIMARY KEY,
       beteckning   TEXT NOT NULL,
       rm           TEXT NOT NULL,
-      organ        TEXT NOT NULL,
+      organ        TEXT,
       titel        TEXT NOT NULL,
       datum        TEXT,
       beslutsdag   TEXT,
-      dokument_url TEXT
+      dokument_url TEXT,
+      doktyp       TEXT NOT NULL DEFAULT 'bet'
+    );
+
+    CREATE TABLE IF NOT EXISTS motions (
+      dok_id        TEXT PRIMARY KEY,
+      beteckning    TEXT NOT NULL,
+      rm            TEXT NOT NULL,
+      titel         TEXT NOT NULL,
+      datum         TEXT,
+      dokument_url  TEXT,
+      forfattare    TEXT,
+      parti         TEXT,
+      behandlas_i   TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS propositions (
+      dok_id        TEXT PRIMARY KEY,
+      beteckning    TEXT NOT NULL,
+      rm            TEXT NOT NULL,
+      titel         TEXT NOT NULL,
+      datum         TEXT,
+      dokument_url  TEXT,
+      departement   TEXT,
+      behandlas_i   TEXT
     );
 
     CREATE TABLE IF NOT EXISTS proposals (
@@ -86,12 +110,18 @@ export function createSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_members_parti ON members(parti);
     CREATE INDEX IF NOT EXISTS idx_documents_rm ON documents(rm);
     CREATE INDEX IF NOT EXISTS idx_documents_organ ON documents(organ);
+    CREATE INDEX IF NOT EXISTS idx_documents_doktyp ON documents(doktyp);
     CREATE INDEX IF NOT EXISTS idx_voting_events_rm ON voting_events(rm);
     CREATE INDEX IF NOT EXISTS idx_voting_events_organ ON voting_events(organ);
     CREATE INDEX IF NOT EXISTS idx_voting_events_datum ON voting_events(datum);
     CREATE INDEX IF NOT EXISTS idx_votes_intressent ON votes(intressent_id);
     CREATE INDEX IF NOT EXISTS idx_proposals_votering_id ON proposals(votering_id);
     CREATE INDEX IF NOT EXISTS idx_party_summary_parti ON party_vote_summary(parti);
+    CREATE INDEX IF NOT EXISTS idx_motions_rm ON motions(rm);
+    CREATE INDEX IF NOT EXISTS idx_motions_parti ON motions(parti);
+    CREATE INDEX IF NOT EXISTS idx_motions_behandlas_i ON motions(behandlas_i);
+    CREATE INDEX IF NOT EXISTS idx_propositions_rm ON propositions(rm);
+    CREATE INDEX IF NOT EXISTS idx_propositions_behandlas_i ON propositions(behandlas_i);
   `);
 }
 
@@ -114,8 +144,32 @@ export function memberInsert(db: Database.Database) {
  */
 export function documentInsert(db: Database.Database) {
   return db.prepare(`
-    INSERT OR REPLACE INTO documents (dok_id, beteckning, rm, organ, titel, datum, beslutsdag, dokument_url)
-    VALUES (@dok_id, @beteckning, @rm, @organ, @titel, @datum, @beslutsdag, @dokument_url)
+    INSERT OR REPLACE INTO documents (dok_id, beteckning, rm, organ, titel, datum, beslutsdag, dokument_url, doktyp)
+    VALUES (@dok_id, @beteckning, @rm, @organ, @titel, @datum, @beslutsdag, @dokument_url, @doktyp)
+  `);
+}
+
+/**
+ * Prepares an upsert statement for the motions table.
+ * @param db - Database instance
+ * @returns A prepared statement for inserting/replacing a motion
+ */
+export function motionInsert(db: Database.Database) {
+  return db.prepare(`
+    INSERT OR REPLACE INTO motions (dok_id, beteckning, rm, titel, datum, dokument_url, forfattare, parti, behandlas_i)
+    VALUES (@dok_id, @beteckning, @rm, @titel, @datum, @dokument_url, @forfattare, @parti, @behandlas_i)
+  `);
+}
+
+/**
+ * Prepares an upsert statement for the propositions table.
+ * @param db - Database instance
+ * @returns A prepared statement for inserting/replacing a proposition
+ */
+export function propositionInsert(db: Database.Database) {
+  return db.prepare(`
+    INSERT OR REPLACE INTO propositions (dok_id, beteckning, rm, titel, datum, dokument_url, departement, behandlas_i)
+    VALUES (@dok_id, @beteckning, @rm, @titel, @datum, @dokument_url, @departement, @behandlas_i)
   `);
 }
 

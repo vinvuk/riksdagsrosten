@@ -1,208 +1,161 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import Fuse from "fuse.js";
-import { Search, User, Vote, BookOpen, Loader2 } from "lucide-react";
-import type { SearchEntry } from "@/lib/types";
+import { Search, Users, Vote, ChevronRight } from "lucide-react";
+import type { Member, VotingEventWithTitle } from "@/lib/types";
+import { PARTIES } from "@/lib/constants";
 import PartyBadge from "@/components/party/PartyBadge";
+import PortraitImage from "@/components/mp/PortraitImage";
+import VoteOutcomeBadge from "@/components/vote/VoteOutcomeBadge";
+import { Input, InputGroup } from "@/components/catalyst/input";
+import { cn } from "@/lib/utils";
+
+interface SearchData {
+  members: Member[];
+  votes: VotingEventWithTitle[];
+}
+
+interface SearchClientProps {
+  data: SearchData;
+}
 
 /**
- * Client-side search component using Fuse.js for fuzzy matching.
- * Loads the search index from /data/search-index.json lazily on mount.
- * Reads and updates the `?q=` URL parameter for shareable search URLs.
+ * Client-side search component with filtering across members and votes.
+ * @param data - Pre-loaded search data (members and votes)
  */
-export default function SearchClient() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const initialQuery = searchParams.get("q") || "";
+export default function SearchClient({ data }: SearchClientProps) {
+  const [query, setQuery] = useState("");
 
-  const [query, setQuery] = useState(initialQuery);
-  const [index, setIndex] = useState<SearchEntry[] | null>(null);
-  const [fuse, setFuse] = useState<Fuse<SearchEntry> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  /**
-   * Loads the search index from the public data directory on component mount.
-   */
-  useEffect(() => {
-    async function loadIndex() {
-      try {
-        const res = await fetch("/data/search-index.json");
-        if (!res.ok) throw new Error("Failed to load search index");
-        const data: SearchEntry[] = await res.json();
-        setIndex(data);
-        const fuseInstance = new Fuse(data, {
-          keys: ["label", "sublabel", "parti", "organ"],
-          threshold: 0.3,
-          includeScore: true,
-        });
-        setFuse(fuseInstance);
-      } catch (err) {
-        console.error("Search index load error:", err);
-        setError("Kunde inte ladda sokindex. Forsok igen senare.");
-      } finally {
-        setLoading(false);
-      }
+  const results = useMemo(() => {
+    if (!query.trim()) {
+      return { members: [], votes: [] };
     }
-    loadIndex();
-  }, []);
 
-  /**
-   * Handles search input changes, updates the URL parameter and query state.
-   * @param value - The new search query string
-   */
-  const handleSearch = useCallback(
-    (value: string) => {
-      setQuery(value);
-      const params = new URLSearchParams();
-      if (value) params.set("q", value);
-      router.replace(`/sok${value ? `?${params.toString()}` : ""}`, {
-        scroll: false,
-      });
-    },
-    [router]
-  );
+    const q = query.toLowerCase();
 
-  /** Computes search results from the Fuse instance. */
-  const results = fuse && query.length >= 2
-    ? fuse.search(query, { limit: 50 })
-    : [];
+    const members = data.members.filter((m) => {
+      const fullName = `${m.tilltalsnamn} ${m.efternamn}`.toLowerCase();
+      const party = PARTIES[m.parti]?.name.toLowerCase() || "";
+      return fullName.includes(q) || party.includes(q) || m.valkrets.toLowerCase().includes(q);
+    }).slice(0, 10);
 
-  /** Groups results by type for display. */
-  const grouped: Record<string, SearchEntry[]> = {
-    ledamot: [],
-    votering: [],
-    amne: [],
-  };
-  for (const r of results) {
-    grouped[r.item.type]?.push(r.item);
-  }
+    const votes = data.votes.filter((v) => {
+      const searchable = `${v.rubrik || ""} ${v.titel || ""} ${v.beteckning}`.toLowerCase();
+      return searchable.includes(q);
+    }).slice(0, 10);
 
-  /**
-   * Returns the appropriate icon for a search result type.
-   * @param type - The search entry type
-   * @returns Lucide icon component
-   */
-  function typeIcon(type: string) {
-    switch (type) {
-      case "ledamot":
-        return <User className="h-4 w-4" />;
-      case "votering":
-        return <Vote className="h-4 w-4" />;
-      case "amne":
-        return <BookOpen className="h-4 w-4" />;
-      default:
-        return null;
-    }
-  }
+    return { members, votes };
+  }, [data, query]);
 
-  /**
-   * Returns the Swedish label for a search result type.
-   * @param type - The search entry type
-   * @returns Human-readable Swedish type name
-   */
-  function typeLabel(type: string): string {
-    switch (type) {
-      case "ledamot":
-        return "Ledamöter";
-      case "votering":
-        return "Voteringar";
-      case "amne":
-        return "Ämnen";
-      default:
-        return type;
-    }
-  }
+  const hasResults = results.members.length > 0 || results.votes.length > 0;
+  const showEmpty = query.trim() && !hasResults;
 
   return (
     <div>
       {/* Search input */}
-      <div className="relative mb-8">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-base-content/40" />
-        <input
-          type="text"
+      <InputGroup>
+        <Search data-slot="icon" />
+        <Input
+          type="search"
+          placeholder="Sök ledamöter, voteringar..."
           value={query}
-          onChange={(e) => handleSearch(e.target.value)}
-          placeholder="Sök efter ledamot, votering eller ämne..."
-          className="input input-bordered w-full pl-10 text-base"
+          onChange={(e) => setQuery(e.target.value)}
           autoFocus
         />
-      </div>
-
-      {/* Loading state */}
-      {loading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <span className="ml-2 text-base-content/60">Laddar sokindex...</span>
-        </div>
-      )}
-
-      {/* Error state */}
-      {error && (
-        <div className="alert alert-error">
-          <span>{error}</span>
-        </div>
-      )}
+      </InputGroup>
 
       {/* Empty state */}
-      {!loading && !error && query.length >= 2 && results.length === 0 && (
-        <div className="text-center py-12 text-base-content/50">
-          Inga resultat for &quot;{query}&quot;
+      {showEmpty && (
+        <div className="mt-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+          Inga resultat hittades för &quot;{query}&quot;
         </div>
       )}
 
-      {/* Hint state */}
-      {!loading && !error && query.length < 2 && (
-        <div className="text-center py-12 text-base-content/50">
-          Skriv minst 2 tecken för att söka.
-        </div>
-      )}
-
-      {/* Results grouped by type */}
-      {!loading &&
-        !error &&
-        results.length > 0 &&
-        (["ledamot", "votering", "amne"] as const).map((type) => {
-          const items = grouped[type];
-          if (!items || items.length === 0) return null;
-          return (
-            <section key={type} className="mb-8">
-              <h2 className="text-lg font-semibold text-base-content mb-3 flex items-center gap-2">
-                {typeIcon(type)}
-                {typeLabel(type)}
-                <span className="text-sm font-normal text-base-content/50">
-                  ({items.length})
-                </span>
+      {/* Results */}
+      {hasResults && (
+        <div className="mt-8 space-y-8">
+          {/* Members */}
+          {results.members.length > 0 && (
+            <section>
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
+                <Users className="size-5" />
+                Ledamöter ({results.members.length})
               </h2>
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={item.url}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-base-200 bg-base-100 hover:bg-base-200 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-base-content">
-                          {item.label}
-                        </span>
-                        {item.parti && (
-                          <PartyBadge parti={item.parti} size="sm" />
-                        )}
+              <ul
+                role="list"
+                className="divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-700 overflow-hidden"
+              >
+                {results.members.map((member) => (
+                  <li key={member.intressent_id}>
+                    <Link
+                      href={`/ledamot/${member.intressent_id}`}
+                      className="flex items-center gap-x-4 bg-white dark:bg-zinc-900 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                    >
+                      <PortraitImage
+                        src={`/portraits/${member.intressent_id}.jpg`}
+                        alt={`${member.tilltalsnamn} ${member.efternamn}`}
+                        size="sm"
+                      />
+                      <div className="min-w-0 flex-auto">
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          {member.tilltalsnamn} {member.efternamn}
+                        </p>
+                        <div className="mt-1 flex items-center gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
+                          <PartyBadge parti={member.parti} />
+                          <span>{member.valkrets}</span>
+                        </div>
                       </div>
-                      <span className="text-sm text-base-content/60">
-                        {item.sublabel}
-                      </span>
-                    </div>
-                  </Link>
+                      <ChevronRight className="size-5 flex-none text-zinc-400" />
+                    </Link>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
-          );
-        })}
+          )}
+
+          {/* Votes */}
+          {results.votes.length > 0 && (
+            <section>
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
+                <Vote className="size-5" />
+                Voteringar ({results.votes.length})
+              </h2>
+              <ul
+                role="list"
+                className="divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-700 overflow-hidden"
+              >
+                {results.votes.map((ve) => (
+                  <li key={ve.votering_id}>
+                    <Link
+                      href={`/votering/${ve.votering_id}`}
+                      className="flex items-center gap-x-4 bg-white dark:bg-zinc-900 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                    >
+                      <div className="min-w-0 flex-auto">
+                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                          {ve.rubrik || ve.titel}
+                        </p>
+                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          {ve.beteckning} &middot; {ve.datum}
+                        </p>
+                      </div>
+                      <VoteOutcomeBadge ja={ve.ja} nej={ve.nej} />
+                      <ChevronRight className="size-5 flex-none text-zinc-400" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      )}
+
+      {/* Initial state */}
+      {!query.trim() && (
+        <div className="mt-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+          Börja skriva för att söka bland ledamöter och voteringar
+        </div>
+      )}
     </div>
   );
 }

@@ -7,9 +7,12 @@ const DB_PATH = path.join(process.cwd(), "data", "riksdagsrosten.db");
 
 const steps = [
   { script: "01-fetch-members.ts", name: "Fetch members" },
-  { script: "02-fetch-documents.ts", name: "Fetch documents" },
+  { script: "02-fetch-documents.ts", name: "Fetch all documents" },
+  { script: "02b-fetch-motions.ts", name: "Fetch motion metadata" },
+  { script: "02c-fetch-propositions.ts", name: "Fetch proposition metadata" },
   { script: "03-fetch-votes.ts", name: "Fetch votes" },
   { script: "04-fetch-proposals.ts", name: "Fetch proposals" },
+  { script: "06-link-documents.ts", name: "Link documents" },
   { script: "05-build-search-index.ts", name: "Build search index" },
 ];
 
@@ -39,7 +42,7 @@ async function runPipeline(): Promise<void> {
       execSync(`npx tsx ${path.join(SCRIPTS_DIR, step.script)}`, {
         stdio: "inherit",
         cwd: process.cwd(),
-        timeout: 30 * 60 * 1000, // 30 minute timeout
+        timeout: 60 * 60 * 1000, // 60 minute timeout per step
       });
     } catch (err) {
       console.error(`\nFailed at step: ${step.name}`);

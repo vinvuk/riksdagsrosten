@@ -1,44 +1,41 @@
 "use client";
 
 import Link from "next/link";
+import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/react";
+import { ChevronDown } from "lucide-react";
 import { PARTIES } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+import type { MpVoteInEvent } from "@/lib/types";
 import PartyBadge from "@/components/party/PartyBadge";
-
-interface MpVoteInEvent {
-  intressent_id: string;
-  tilltalsnamn: string;
-  efternamn: string;
-  parti: string;
-  rost: string;
-}
+import { Badge } from "@/components/catalyst/badge";
 
 interface VoteDetailAccordionProps {
   votesByParty: Record<string, MpVoteInEvent[]>;
 }
 
 /**
- * Returns the DaisyUI badge class for a given vote type.
+ * Returns the Catalyst badge color for a given vote type.
  * @param rost - The vote value (Ja, Nej, etc.)
- * @returns CSS class string for the badge
+ * @returns Catalyst badge color key
  */
-function voteBadgeClass(rost: string): string {
+function voteBadgeColor(rost: string): "emerald" | "red" | "amber" | "zinc" {
   switch (rost) {
     case "Ja":
-      return "badge badge-success badge-sm";
+      return "emerald";
     case "Nej":
-      return "badge badge-error badge-sm";
+      return "red";
     case "Avstår":
-      return "badge badge-warning badge-sm";
+      return "amber";
     case "Frånvarande":
-      return "badge badge-ghost badge-sm";
+      return "zinc";
     default:
-      return "badge badge-sm";
+      return "zinc";
   }
 }
 
 /**
  * Accordion component for displaying all MP votes grouped by party.
- * Each party section is expandable using DaisyUI collapse.
+ * Each party section is expandable using HeadlessUI Disclosure.
  * @param votesByParty - Record mapping party codes to arrays of MP votes
  */
 export default function VoteDetailAccordion({
@@ -53,39 +50,45 @@ export default function VoteDetailAccordion({
         .map((code) => {
           const votes = votesByParty[code];
           return (
-            <div
-              key={code}
-              className="collapse collapse-arrow border border-base-200 bg-base-100 rounded-lg"
-            >
-              <input type="checkbox" />
-              <div className="collapse-title flex items-center gap-3">
-                <PartyBadge parti={code} size="md" />
-                <span className="font-medium text-base-content">
-                  {PARTIES[code]?.name}
-                </span>
-                <span className="text-sm text-base-content/50">
-                  ({votes.length} ledamoter)
-                </span>
-              </div>
-              <div className="collapse-content">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-2">
-                  {votes.map((v) => (
-                    <div
-                      key={v.intressent_id}
-                      className="flex items-center justify-between p-2 rounded bg-base-200/50"
-                    >
-                      <Link
-                        href={`/ledamot/${v.intressent_id}`}
-                        className="text-sm link link-hover text-base-content"
-                      >
-                        {v.tilltalsnamn} {v.efternamn}
-                      </Link>
-                      <span className={voteBadgeClass(v.rost)}>{v.rost}</span>
+            <Disclosure key={code} as="div">
+              {({ open }) => (
+                <div className="border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded-lg">
+                  <DisclosureButton className="flex w-full items-center gap-3 px-4 py-3 text-left">
+                    <PartyBadge parti={code} size="md" />
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                      {PARTIES[code]?.name || code}
+                    </span>
+                    <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                      ({votes.length} ledamöter)
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        "ml-auto size-5 text-zinc-500 dark:text-zinc-400 transition-transform",
+                        open && "rotate-180"
+                      )}
+                    />
+                  </DisclosureButton>
+                  <DisclosurePanel className="px-4 pb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-2">
+                      {votes.map((v) => (
+                        <div
+                          key={v.intressent_id}
+                          className="flex items-center justify-between p-2 rounded bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors"
+                        >
+                          <Link
+                            href={`/ledamot/${v.intressent_id}`}
+                            className="text-sm text-zinc-900 dark:text-zinc-100 hover:underline"
+                          >
+                            {v.tilltalsnamn} {v.efternamn}
+                          </Link>
+                          <Badge color={voteBadgeColor(v.rost)}>{v.rost}</Badge>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </DisclosurePanel>
                 </div>
-              </div>
-            </div>
+              )}
+            </Disclosure>
           );
         })}
     </div>

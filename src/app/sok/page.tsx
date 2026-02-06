@@ -1,34 +1,57 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
+import { getDb } from "@/lib/db";
+import type { Member, VotingEventWithTitle } from "@/lib/types";
 import SearchClient from "@/components/search/SearchClient";
 
 export const metadata: Metadata = {
-  title: "Sok",
-  description:
-    "Sok bland ledamoter, voteringar och amnen i riksdagen.",
+  title: "Sök",
+  description: "Sök bland ledamöter och voteringar i riksdagen",
 };
 
 /**
- * Search page (server wrapper).
- * Renders the client-side search component that loads the search index lazily.
- * Wrapped in Suspense because SearchClient uses useSearchParams.
+ * Fetches all searchable data from the database.
+ * @returns Object with members and votes for client-side search
+ */
+function getSearchData() {
+  const db = getDb();
+  try {
+    const members = db
+      .prepare("SELECT * FROM members ORDER BY efternamn, tilltalsnamn")
+      .all() as Member[];
+
+    const votes = db
+      .prepare(
+        `SELECT ve.*, d.titel
+         FROM voting_events ve
+         LEFT JOIN documents d ON ve.dok_id = d.dok_id
+         ORDER BY ve.datum DESC`
+      )
+      .all() as VotingEventWithTitle[];
+
+    return { members, votes };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Search page with client-side filtering across members and votes.
  */
 export default function SokPage() {
+  const data = getSearchData();
+
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-base-content mb-2">Sok</h1>
-      <p className="text-base-content/60 mb-8">
-        Sok efter ledamot, votering eller amne.
-      </p>
-      <Suspense
-        fallback={
-          <div className="text-center py-12 text-base-content/50">
-            Laddar sok...
-          </div>
-        }
-      >
-        <SearchClient />
-      </Suspense>
+    <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          Sök
+        </h1>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Sök bland {data.members.length} ledamöter och {data.votes.length} voteringar.
+        </p>
+      </div>
+
+      <SearchClient data={data} />
     </div>
   );
 }

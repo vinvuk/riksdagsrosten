@@ -1,31 +1,35 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { getDb } from "@/lib/db";
 import { COMMITTEE_MAP, PARTIES } from "@/lib/constants";
 import type {
   VotingEvent,
   PartyVoteSummary,
-  Member,
+  MpVoteInEvent,
 } from "@/lib/types";
 import VoteResultBar from "@/components/vote/VoteResultBar";
+import VoteOutcomeBadge from "@/components/vote/VoteOutcomeBadge";
 import PartyBadge from "@/components/party/PartyBadge";
 import VoteDetailAccordion from "@/components/vote/VoteDetailAccordion";
+import VoteDetailTabs from "@/components/vote/VoteDetailTabs";
+import { Button } from "@/components/catalyst/button";
+import { Badge } from "@/components/catalyst/badge";
 
 /**
  * Generates static params for all vote detail pages.
+ * Required for static export (output: "export").
  * @returns Array of params objects containing each votering_id
  */
 export function generateStaticParams(): { id: string }[] {
+  const db = getDb();
   try {
-    const db = getDb();
     const rows = db
       .prepare("SELECT votering_id FROM voting_events")
       .all() as { votering_id: string }[];
-    db.close();
     return rows.map((r) => ({ id: r.votering_id }));
-  } catch (error) {
-    console.error("Failed to generate static params for votering:", error);
-    return [];
+  } finally {
+    db.close();
   }
 }
 
@@ -40,42 +44,31 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  const db = getDb();
   try {
-    const db = getDb();
     const ve = db
-      .prepare("SELECT rubrik, beteckning FROM voting_events WHERE votering_id = ?")
+      .prepare(
+        "SELECT rubrik, beteckning FROM voting_events WHERE votering_id = ?"
+      )
       .get(id) as { rubrik: string | null; beteckning: string } | undefined;
-    db.close();
     if (!ve) return { title: "Votering" };
     return {
       title: ve.rubrik || ve.beteckning,
-      description: `Resultat for votering ${ve.beteckning}`,
+      description: `Resultat för votering ${ve.beteckning}`,
     };
-  } catch {
-    return { title: "Votering" };
+  } finally {
+    db.close();
   }
 }
 
 /**
- * Data shape for an individual MP's vote in the vote detail view.
- */
-interface MpVoteInEvent {
-  intressent_id: string;
-  tilltalsnamn: string;
-  efternamn: string;
-  parti: string;
-  rost: string;
-}
-
-/**
- * Fetches all data needed for a vote detail page: voting event, proposal, party summaries, and individual votes.
+ * Fetches all data needed for a vote detail page.
  * @param id - The votering_id
  * @returns Object with all vote detail data, or null if not found
  */
 function getVoteDetailData(id: string) {
+  const db = getDb();
   try {
-    const db = getDb();
-
     const votingEvent = db
       .prepare(
         `SELECT ve.*, d.titel, d.dokument_url
@@ -87,16 +80,15 @@ function getVoteDetailData(id: string) {
       | (VotingEvent & { titel: string; dokument_url: string | null })
       | undefined;
 
-    if (!votingEvent) {
-      db.close();
-      return null;
-    }
+    if (!votingEvent) return null;
 
     const proposal = db
       .prepare(
         "SELECT forslag, rubrik FROM proposals WHERE votering_id = ?"
       )
-      .get(id) as { forslag: string | null; rubrik: string | null } | undefined;
+      .get(id) as
+      | { forslag: string | null; rubrik: string | null }
+      | undefined;
 
     const partySummaries = db
       .prepare(
@@ -114,12 +106,9 @@ function getVoteDetailData(id: string) {
       )
       .all(id) as MpVoteInEvent[];
 
-    db.close();
-
     return { votingEvent, proposal, partySummaries, mpVotes };
-  } catch (error) {
-    console.error(`Failed to fetch vote detail for ${id}:`, error);
-    return null;
+  } finally {
+    db.close();
   }
 }
 
@@ -138,19 +127,19 @@ export default async function VoteringDetailPage({
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <h1 className="text-2xl font-bold text-base-content">
+      <div className="px-4 py-16 text-center sm:px-6 lg:px-8">
+        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
           Voteringen hittades inte
         </h1>
-        <Link href="/votering" className="btn btn-primary mt-4">
+        <Button href="/votering" color="blue" className="mt-4">
           Tillbaka till voteringar
-        </Link>
+        </Button>
       </div>
     );
   }
 
   const { votingEvent, proposal, partySummaries, mpVotes } = data;
-  const committee = COMMITTEE_MAP[votingEvent.organ];
+  const committee = COMMITTEE_MAP[votingEvent.organ] || { name: votingEvent.organ, slug: votingEvent.organ.toLowerCase() };
 
   // Group MP votes by party
   const votesByParty: Record<string, MpVoteInEvent[]> = {};
@@ -161,105 +150,140 @@ export default async function VoteringDetailPage({
     votesByParty[vote.parti].push(vote);
   }
 
-  return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          <span className="text-sm text-base-content/50">
-            {votingEvent.beteckning}
-          </span>
-          {committee && (
-            <Link
-              href={`/amne/${committee.slug}`}
-              className="badge badge-outline text-xs"
-            >
-              {committee.name}
-            </Link>
-          )}
-          <span className="text-sm text-base-content/50">
-            {votingEvent.datum}
-          </span>
+  // Pre-render tab content as server components
+  const resultatContent = (
+    <VoteResultBar
+      ja={votingEvent.ja}
+      nej={votingEvent.nej}
+      avstar={votingEvent.avstar}
+      franvarande={votingEvent.franvarande}
+      showLabels
+      height="lg"
+    />
+  );
+
+  const partyContent = (
+    <div className="space-y-3">
+      {partySummaries.map((ps) => (
+        <div
+          key={ps.parti}
+          className="flex items-center gap-4 p-3 rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+        >
+          <div className="w-20 shrink-0">
+            <PartyBadge parti={ps.parti} size="md" />
+          </div>
+          <div className="flex-1">
+            <VoteResultBar
+              ja={ps.ja}
+              nej={ps.nej}
+              avstar={ps.avstar}
+              franvarande={ps.franvarande}
+              height="sm"
+            />
+          </div>
+          <VoteOutcomeBadge ja={ps.ja} nej={ps.nej} />
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs shrink-0">
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">Ja {ps.ja}</span>
+            <span className="text-red-600 dark:text-red-400 font-medium">Nej {ps.nej}</span>
+            <span className="text-amber-600 dark:text-amber-400 font-medium">
+              Avst. {ps.avstar}
+            </span>
+            <span className="text-zinc-500 dark:text-zinc-400">
+              Frånv. {ps.franvarande}
+            </span>
+          </div>
         </div>
-        <h1 className="text-3xl font-bold text-base-content mb-2">
+      ))}
+    </div>
+  );
+
+  const allVotesContent = (
+    <VoteDetailAccordion votesByParty={votesByParty} />
+  );
+
+  return (
+    <div className="px-4 py-8 sm:px-6 lg:px-8">
+      {/* Back link */}
+      <Link
+        href="/votering"
+        className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-6"
+      >
+        <ArrowLeft className="size-4" />
+        Tillbaka till voteringar
+      </Link>
+
+      {/* Title and outcome */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
           {votingEvent.rubrik || votingEvent.titel}
         </h1>
-        {proposal?.forslag && (
-          <div className="bg-base-200 rounded-lg p-4 mt-4">
-            <h3 className="text-sm font-semibold text-base-content/70 mb-1">
-              Forslag till beslut
-            </h3>
-            <p className="text-sm text-base-content/80">{proposal.forslag}</p>
-          </div>
-        )}
-        {votingEvent.dokument_url && (
-          <a
-            href={votingEvent.dokument_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-ghost btn-sm mt-3 text-primary"
-          >
-            Oppna dokument pa riksdagen.se
-          </a>
-        )}
+        <VoteOutcomeBadge ja={votingEvent.ja} nej={votingEvent.nej} />
       </div>
 
-      {/* Overall Result */}
-      <section className="mb-8">
-        <h2 className="text-xl font-bold text-base-content mb-3">
-          Samlat resultat
-        </h2>
-        <VoteResultBar
-          ja={votingEvent.ja}
-          nej={votingEvent.nej}
-          avstar={votingEvent.avstar}
-          franvarande={votingEvent.franvarande}
-          showLabels
-          height="lg"
-        />
-      </section>
-
-      {/* Party Breakdown */}
-      <section className="mb-8">
-        <h2 className="text-xl font-bold text-base-content mb-4">
-          Partifordelning
-        </h2>
-        <div className="space-y-3">
-          {partySummaries.map((ps) => (
-            <div
-              key={ps.parti}
-              className="flex items-center gap-4 p-3 rounded-lg border border-base-200 bg-base-100"
-            >
-              <div className="w-20 shrink-0">
-                <PartyBadge parti={ps.parti} size="md" />
-              </div>
-              <div className="flex-1">
-                <VoteResultBar
-                  ja={ps.ja}
-                  nej={ps.nej}
-                  avstar={ps.avstar}
-                  franvarande={ps.franvarande}
-                  height="sm"
-                />
-              </div>
-              <div className="hidden sm:flex gap-3 text-xs text-base-content/60 shrink-0">
-                <span className="text-success">Ja {ps.ja}</span>
-                <span className="text-error">Nej {ps.nej}</span>
-                <span className="text-warning">Avst. {ps.avstar}</span>
-                <span>Franv. {ps.franvarande}</span>
-              </div>
+      {/* Metadata card */}
+      <div className="mt-6 overflow-hidden bg-white dark:bg-zinc-900 rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-700">
+        <dl className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          <div className="px-4 py-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dt className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Beteckning</dt>
+            <dd className="mt-1 text-sm text-zinc-500 dark:text-zinc-400 sm:col-span-2 sm:mt-0">
+              {votingEvent.beteckning}
+            </dd>
+          </div>
+          {committee && (
+            <div className="px-4 py-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Utskott</dt>
+              <dd className="mt-1 text-sm text-zinc-500 dark:text-zinc-400 sm:col-span-2 sm:mt-0">
+                <Link href={`/amne/${committee.slug}`} className="hover:text-blue-600 dark:hover:text-blue-400">
+                  {committee.name}
+                </Link>
+              </dd>
             </div>
-          ))}
-        </div>
-      </section>
+          )}
+          {votingEvent.datum && (
+            <div className="px-4 py-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Datum</dt>
+              <dd className="mt-1 text-sm text-zinc-500 dark:text-zinc-400 sm:col-span-2 sm:mt-0">
+                {votingEvent.datum}
+              </dd>
+            </div>
+          )}
+          {proposal?.forslag && (
+            <div className="px-4 py-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Förslag</dt>
+              <dd className="mt-1 text-sm text-zinc-500 dark:text-zinc-400 sm:col-span-2 sm:mt-0">
+                {proposal.forslag}
+              </dd>
+            </div>
+          )}
+          {votingEvent.dokument_url && (
+            <div className="px-4 py-4 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <dt className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Dokument</dt>
+              <dd className="mt-1 text-sm sm:col-span-2 sm:mt-0">
+                <a
+                  href={votingEvent.dokument_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  <ExternalLink className="size-4" />
+                  Öppna på riksdagen.se
+                </a>
+              </dd>
+            </div>
+          )}
+        </dl>
+      </div>
 
-      {/* All MP Votes */}
-      <section>
-        <h2 className="text-xl font-bold text-base-content mb-4">
-          Alla ledamoters roster
-        </h2>
-        <VoteDetailAccordion votesByParty={votesByParty} />
-      </section>
+      {/* Tabbed sections */}
+      <div className="mt-8">
+        <VoteDetailTabs
+          tabs={[
+            { name: "Resultat", content: resultatContent },
+            { name: "Partifördelning", content: partyContent },
+            { name: "Alla röster", content: allVotesContent },
+          ]}
+        />
+      </div>
     </div>
   );
 }

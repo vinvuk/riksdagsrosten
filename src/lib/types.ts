@@ -88,6 +88,20 @@ export interface MpVoteRow {
   datum: string | null;
 }
 
+/** An individual MP's vote within a specific voting event (for detail view). */
+export interface MpVoteInEvent {
+  intressent_id: string;
+  tilltalsnamn: string;
+  efternamn: string;
+  parti: string;
+  rost: string;
+}
+
+/** VotingEvent enriched with document title for list display. */
+export interface VotingEventWithTitle extends VotingEvent {
+  titel: string;
+}
+
 /** Stats for the home page or MP profile. */
 export interface VoteStats {
   totalVotes: number;

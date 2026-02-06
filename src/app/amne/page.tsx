@@ -5,71 +5,81 @@ import { COMMITTEE_MAP } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Ämnen",
-  description:
-    "Utforska voteringar per utskottsområde: arbetsmarknad, finans, försvar, justitie och mer.",
+  description: "Utforska voteringar efter utskott och ämnesområde",
 };
 
+interface CommitteeStats {
+  organ: string;
+  voteCount: number;
+}
+
 /**
- * Fetches the number of voting events per committee organ.
- * @returns Record mapping committee codes to their vote count
+ * Fetches committee vote statistics from the database.
+ * @returns Array of committee codes with their vote counts
  */
-function getTopicCounts(): Record<string, number> {
+function getCommitteeStats(): CommitteeStats[] {
+  const db = getDb();
   try {
-    const db = getDb();
-    const rows = db
+    const stats = db
       .prepare(
-        "SELECT organ, COUNT(*) as count FROM voting_events GROUP BY organ"
+        `SELECT organ, COUNT(*) as voteCount
+         FROM voting_events
+         GROUP BY organ
+         ORDER BY voteCount DESC`
       )
-      .all() as { organ: string; count: number }[];
+      .all() as CommitteeStats[];
+    return stats;
+  } finally {
     db.close();
-    const counts: Record<string, number> = {};
-    for (const row of rows) {
-      counts[row.organ] = row.count;
-    }
-    return counts;
-  } catch (error) {
-    console.error("Failed to fetch topic counts:", error);
-    return {};
   }
 }
 
 /**
- * Topic overview page showing all 15 committee areas as cards.
- * Each card shows the committee icon, name, description, and vote count.
+ * Committee/topic overview page displaying a grid of all committees.
  */
 export default function AmnePage() {
-  const counts = getTopicCounts();
+  const committeeStats = getCommitteeStats();
+
+  // Create a map of vote counts for easy lookup
+  const voteCounts: Record<string, number> = {};
+  for (const stat of committeeStats) {
+    voteCounts[stat.organ] = stat.voteCount;
+  }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-base-content mb-2">Ämnen</h1>
-      <p className="text-base-content/60 mb-8">
-        Riksdagens voteringar indelade efter utskottsområde. Välj ett ämne för
-        att se alla voteringar inom området.
-      </p>
+    <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          Ämnen
+        </h1>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Utforska voteringar efter utskott och ämnesområde.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Object.entries(COMMITTEE_MAP).map(([code, info]) => {
           const Icon = info.icon;
+          const count = voteCounts[code] || 0;
           return (
             <Link
               key={code}
               href={`/amne/${info.slug}`}
-              className="group p-6 rounded-lg border border-base-200 bg-base-100 hover:bg-base-200 transition-colors"
+              className="group flex items-start gap-4 rounded-lg bg-white dark:bg-zinc-900 p-4 ring-1 ring-zinc-200 dark:ring-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:ring-zinc-300 dark:hover:ring-zinc-600 hover:shadow-md transition-all"
             >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Icon className="h-5 w-5 text-primary" />
-                </div>
-                <h2 className="text-lg font-semibold text-base-content group-hover:text-primary transition-colors">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20 transition-colors">
+                <Icon className="size-5" />
+              </div>
+              <div className="min-w-0 flex-auto">
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {info.name}
                 </h2>
-              </div>
-              <p className="text-sm text-base-content/60 mb-3">
-                {info.description}
-              </p>
-              <div className="text-xs text-base-content/40">
-                {counts[code] || 0} voteringar
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
+                  {info.description}
+                </p>
+                <p className="mt-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                  {count} voteringar
+                </p>
               </div>
             </Link>
           );

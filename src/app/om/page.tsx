@@ -1,177 +1,87 @@
 import type { Metadata } from "next";
-import { Vote, Database, BookOpen, Scale } from "lucide-react";
+import { Info, Database, BarChart3, Scale } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Om projektet",
-  description:
-    "Om Riksdagsrösten – ett verktyg för att utforska hur riksdagsledamöterna röstat.",
+  title: "Om Riksdagsrösten",
+  description: "Information om Riksdagsrösten och dess datakällor",
 };
 
+const sections = [
+  {
+    icon: Info,
+    title: "Vad är Riksdagsrösten?",
+    content:
+      "Riksdagsrösten är en öppen och transparent webbplats som visualiserar röstningsdata från Sveriges riksdag. Syftet är att göra det enklare för medborgare att följa hur deras folkvalda representanter röstar i viktiga frågor.",
+  },
+  {
+    icon: Database,
+    title: "Datakällor",
+    content:
+      "All data hämtas från Riksdagens öppna API (data.riksdagen.se). Detta inkluderar information om ledamöter, voteringar, propositioner och utskottsbetänkanden. Datan uppdateras regelbundet för att säkerställa aktualitet.",
+  },
+  {
+    icon: BarChart3,
+    title: "Metod",
+    content:
+      "Voteringsdata bearbetas och aggregeras för att visa tydliga mönster i hur partier och enskilda ledamöter röstar. Visualiseringar använder färgkodning för att snabbt förmedla röstresultat: grönt för ja, rött för nej, gult för avstår, och grått för frånvarande.",
+  },
+  {
+    icon: Scale,
+    title: "Transparens",
+    content:
+      "Riksdagsrösten strävar efter fullständig transparens. Ingen data manipuleras eller tolkas - vi presenterar endast den officiella röstningsdatan i ett mer lättillgängligt format. Källkoden är öppen för granskning.",
+  },
+];
+
 /**
- * Static about page explaining the project, data sources, methodology, and attribution.
+ * About page describing the project, data sources, and methodology.
  */
 export default function OmPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-base-content mb-8">
-        Om Riksdagsrösten
-      </h1>
+    <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          Om Riksdagsrösten
+        </h1>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          En öppen plattform för att följa riksdagens voteringar
+        </p>
+      </div>
 
-      {/* Introduction */}
-      <section className="mb-10">
-        <div className="flex items-start gap-3 mb-4">
-          <Vote className="h-6 w-6 text-primary mt-1 shrink-0" />
-          <div>
-            <h2 className="text-xl font-semibold text-base-content mb-2">
-              Vad är Riksdagsrösten?
-            </h2>
-            <p className="text-base-content/70 leading-relaxed">
-              Riksdagsrösten är ett verktyg som gör det enkelt att utforska hur
-              Sveriges riksdagsledamöter röstat under mandatperioden 2022–2026.
-              Genom att samla in och visualisera öppen data från riksdagen kan du
-              snabbt se hur enskilda ledamöter, partier och utskott röstat i olika
-              frågor.
-            </p>
-          </div>
-        </div>
-      </section>
+      <div className="space-y-8">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <div
+              key={section.title}
+              className="rounded-lg bg-white dark:bg-zinc-900 p-6 ring-1 ring-zinc-200 dark:ring-zinc-700"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <Icon className="size-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                    {section.title}
+                  </h2>
+                  <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    {section.content}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
-      {/* Data Sources */}
-      <section className="mb-10">
-        <div className="flex items-start gap-3 mb-4">
-          <Database className="h-6 w-6 text-primary mt-1 shrink-0" />
-          <div>
-            <h2 className="text-xl font-semibold text-base-content mb-2">
-              Datakällor
-            </h2>
-            <p className="text-base-content/70 leading-relaxed mb-3">
-              All data kommer från Sveriges riksdags öppna data-API:
-            </p>
-            <ul className="list-disc pl-5 space-y-2 text-base-content/70">
-              <li>
-                <a
-                  href="https://data.riksdagen.se/voteringlista/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="link link-primary"
-                >
-                  Voteringslistor
-                </a>{" "}
-                – Hur varje ledamot röstat i varje votering
-              </li>
-              <li>
-                <a
-                  href="https://data.riksdagen.se/personlista/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="link link-primary"
-                >
-                  Personlista
-                </a>{" "}
-                – Information om riksdagsledamöter
-              </li>
-              <li>
-                <a
-                  href="https://data.riksdagen.se/dokumentlista/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="link link-primary"
-                >
-                  Dokumentlista
-                </a>{" "}
-                – Betänkanden och förslag
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Methodology */}
-      <section className="mb-10">
-        <div className="flex items-start gap-3 mb-4">
-          <BookOpen className="h-6 w-6 text-primary mt-1 shrink-0" />
-          <div>
-            <h2 className="text-xl font-semibold text-base-content mb-2">
-              Metod
-            </h2>
-            <ul className="list-disc pl-5 space-y-2 text-base-content/70">
-              <li>
-                <strong>Mandatperiod:</strong> Sidan täcker mandatperioden
-                2022–2026 (riksmötena 2022/23, 2023/24, 2024/25 och 2025/26).
-              </li>
-              <li>
-                <strong>Voteringstyp:</strong> Enbart huvudvoteringar
-                (sakfragan) visas. Motionsvoteringar, reservationer och
-                tillkännagivanden har filtrerats bort för att ge en tydligare
-                bild av hur partierna ställt sig i de slutgiltiga besluten.
-              </li>
-              <li>
-                <strong>Utskottsindelning:</strong> Voteringar grupperas efter det
-                utskott (organ) som behandlat ärendet, enligt riksdagens
-                beteckningssystem.
-              </li>
-              <li>
-                <strong>Uppdateringsfrekvens:</strong> Data uppdateras periodiskt
-                från riksdagens öppna API.
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Attribution */}
-      <section className="mb-10">
-        <div className="flex items-start gap-3 mb-4">
-          <Scale className="h-6 w-6 text-primary mt-1 shrink-0" />
-          <div>
-            <h2 className="text-xl font-semibold text-base-content mb-2">
-              Tillskrivning
-            </h2>
-            <p className="text-base-content/70 leading-relaxed mb-3">
-              Riksdagsrösten är ett oberoende projekt och har ingen koppling till
-              riksdagen, något parti eller någon myndighet. All data tillhandahålls
-              av{" "}
-              <a
-                href="https://www.riksdagen.se"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="link link-primary"
-              >
-                Sveriges riksdag
-              </a>{" "}
-              via deras{" "}
-              <a
-                href="https://data.riksdagen.se"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="link link-primary"
-              >
-                öppna datatjänst
-              </a>
-              .
-            </p>
-            <p className="text-base-content/70 leading-relaxed">
-              Porträttfoton av riksdagsledamöter är copyright Sveriges riksdag och
-              används här för informationssyfte.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Disclaimer */}
-      <div className="bg-base-200 rounded-lg p-4 text-sm text-base-content/60">
-        <strong>Ansvarsfriskrivning:</strong> Denna sida presenterar öppen data
-        från riksdagen i ett lättillgängligt format. Trots noggrann hantering kan
-        fel förekomma. För officiella uppgifter, vänd dig alltid till{" "}
-        <a
-          href="https://www.riksdagen.se"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="link link-primary"
-        >
-          riksdagen.se
-        </a>
-        .
+      <div className="mt-8 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 p-6 ring-1 ring-zinc-200 dark:ring-zinc-700">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          Kontakt och feedback
+        </h2>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Har du frågor, synpunkter eller förslag på förbättringar? Du är välkommen
+          att höra av dig via GitHub där projektet finns tillgängligt.
+        </p>
       </div>
     </div>
   );

@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
-import { COMMITTEE_MAP, SLUG_TO_COMMITTEE, PARTIES } from "@/lib/constants";
-import type { VotingEvent, PartyVoteSummary } from "@/lib/types";
-import VoteResultBar from "@/components/vote/VoteResultBar";
-import PartyBadge from "@/components/party/PartyBadge";
+import { COMMITTEE_MAP, SLUG_TO_COMMITTEE } from "@/lib/constants";
+import type { VotingEventWithTitle } from "@/lib/types";
+import TopicVoteList from "@/components/vote/TopicVoteList";
 
 /**
- * Generates static params for all topic detail pages.
+ * Generates static params for all topic pages.
  * @returns Array of params objects containing each committee slug
  */
 export function generateStaticParams(): { slug: string }[] {
@@ -15,9 +16,9 @@ export function generateStaticParams(): { slug: string }[] {
 }
 
 /**
- * Generates metadata for a topic detail page.
+ * Generates metadata for a topic page.
  * @param params - Route params containing the committee slug
- * @returns Metadata with the topic name as title
+ * @returns Metadata with the committee name as title
  */
 export async function generateMetadata({
   params,
@@ -26,7 +27,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const code = SLUG_TO_COMMITTEE[slug];
-  const committee = code ? COMMITTEE_MAP[code] : undefined;
+  const committee = code ? COMMITTEE_MAP[code] : null;
   if (!committee) return { title: "Ämne" };
   return {
     title: committee.name,
@@ -35,15 +36,17 @@ export async function generateMetadata({
 }
 
 /**
- * Fetches all voting events and party voting patterns for a given committee.
- * @param organCode - The committee code (e.g. "FiU", "JuU")
- * @returns Object with voting events and party summaries for the topic
+ * Fetches topic detail data from the database.
+ * @param committeeCode - The committee code (uppercase)
+ * @returns Object with committee info and voting events, or null if not found
  */
-function getTopicData(organCode: string) {
-  try {
-    const db = getDb();
+function getTopicData(committeeCode: string) {
+  const committee = COMMITTEE_MAP[committeeCode];
+  if (!committee) return null;
 
-    const votingEvents = db
+  const db = getDb();
+  try {
+    const votes = db
       .prepare(
         `SELECT ve.*, d.titel
          FROM voting_events ve
@@ -51,34 +54,16 @@ function getTopicData(organCode: string) {
          WHERE ve.organ = ?
          ORDER BY ve.datum DESC`
       )
-      .all(organCode) as (VotingEvent & { titel: string })[];
+      .all(committeeCode) as VotingEventWithTitle[];
 
-    const partyPatterns = db
-      .prepare(
-        `SELECT pvs.parti,
-                SUM(pvs.ja) as ja,
-                SUM(pvs.nej) as nej,
-                SUM(pvs.avstar) as avstar,
-                SUM(pvs.franvarande) as franvarande
-         FROM party_vote_summary pvs
-         JOIN voting_events ve ON pvs.votering_id = ve.votering_id
-         WHERE ve.organ = ?
-         GROUP BY pvs.parti
-         ORDER BY pvs.parti`
-      )
-      .all(organCode) as PartyVoteSummary[];
-
+    return { committee, votes, code: committeeCode };
+  } finally {
     db.close();
-    return { votingEvents, partyPatterns };
-  } catch (error) {
-    console.error(`Failed to fetch topic data for ${organCode}:`, error);
-    return { votingEvents: [], partyPatterns: [] };
   }
 }
 
 /**
- * Topic detail page showing all voting events for a specific committee area
- * and how each party has voted on this topic.
+ * Topic detail page showing all votes for a specific committee.
  * @param params - Route params containing the committee slug
  */
 export default async function AmneDetailPage({
@@ -87,109 +72,57 @@ export default async function AmneDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const organCode = SLUG_TO_COMMITTEE[slug];
-  const committee = organCode ? COMMITTEE_MAP[organCode] : undefined;
-
-  if (!committee) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <h1 className="text-2xl font-bold text-base-content">
-          Ämnet hittades inte
-        </h1>
-        <Link href="/amne" className="btn btn-primary mt-4">
-          Tillbaka till ämnen
-        </Link>
-      </div>
-    );
+  const code = SLUG_TO_COMMITTEE[slug];
+  if (!code) {
+    notFound();
   }
 
-  const { votingEvents, partyPatterns } = getTopicData(organCode);
+  const data = getTopicData(code);
+  if (!data) {
+    notFound();
+  }
+
+  const { committee, votes } = data;
   const Icon = committee.icon;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      {/* Topic Header */}
-      <div className="flex items-center gap-4 mb-2">
-        <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Icon className="h-6 w-6 text-primary" />
+    <div className="px-4 py-8 sm:px-6 lg:px-8">
+      {/* Back link */}
+      <Link
+        href="/amne"
+        className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-6"
+      >
+        <ArrowLeft className="size-4" />
+        Alla ämnen
+      </Link>
+
+      {/* Committee header */}
+      <div className="flex items-center gap-4">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
+          <Icon className="size-5" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-base-content">
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
             {committee.name}
           </h1>
-          <p className="text-base-content/60">{committee.description}</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            {committee.description}
+          </p>
         </div>
       </div>
-      <p className="text-sm text-base-content/50 mb-8">
-        {votingEvents.length} voteringar inom detta omrade
+
+      {/* Stats */}
+      <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
+        <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+          {votes.length}
+        </span>{" "}
+        voteringar
       </p>
 
-      {/* Party Voting Patterns */}
-      <section className="mb-12">
-        <h2 className="text-xl font-bold text-base-content mb-4">
-          Partiernas rostning
-        </h2>
-        <div className="space-y-3">
-          {partyPatterns
-            .filter((pp) => PARTIES[pp.parti])
-            .map((pp) => (
-              <div
-                key={pp.parti}
-                className="flex items-center gap-4 p-3 rounded-lg border border-base-200 bg-base-100"
-              >
-                <div className="w-20 shrink-0">
-                  <PartyBadge parti={pp.parti} size="md" />
-                </div>
-                <div className="flex-1">
-                  <VoteResultBar
-                    ja={pp.ja}
-                    nej={pp.nej}
-                    avstar={pp.avstar}
-                    franvarande={pp.franvarande}
-                    height="sm"
-                  />
-                </div>
-                <div className="hidden sm:flex gap-3 text-xs text-base-content/60 shrink-0">
-                  <span className="text-success">Ja {pp.ja}</span>
-                  <span className="text-error">Nej {pp.nej}</span>
-                </div>
-              </div>
-            ))}
-        </div>
-      </section>
-
-      {/* Voting Events List */}
-      <section>
-        <h2 className="text-xl font-bold text-base-content mb-4">
-          Alla voteringar
-        </h2>
-        <div className="space-y-4">
-          {votingEvents.map((ve) => (
-            <Link
-              key={ve.votering_id}
-              href={`/votering/${ve.votering_id}`}
-              className="block p-4 rounded-lg border border-base-200 bg-base-100 hover:bg-base-200 transition-colors"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs text-base-content/50">
-                  {ve.beteckning} | {ve.datum}
-                </span>
-              </div>
-              <h3 className="font-semibold text-base-content mb-2 line-clamp-2">
-                {ve.rubrik || ve.titel}
-              </h3>
-              <VoteResultBar
-                ja={ve.ja}
-                nej={ve.nej}
-                avstar={ve.avstar}
-                franvarande={ve.franvarande}
-                showLabels
-                height="sm"
-              />
-            </Link>
-          ))}
-        </div>
-      </section>
+      {/* Paginated vote list */}
+      <div className="mt-4">
+        <TopicVoteList votes={votes} />
+      </div>
     </div>
   );
 }

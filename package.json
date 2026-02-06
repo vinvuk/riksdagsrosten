@@ -10,20 +10,24 @@
     "pipeline": "tsx scripts/pipeline.ts",
     "pipeline:members": "tsx scripts/01-fetch-members.ts",
     "pipeline:documents": "tsx scripts/02-fetch-documents.ts",
+    "pipeline:motions": "tsx scripts/02b-fetch-motions.ts",
+    "pipeline:propositions": "tsx scripts/02c-fetch-propositions.ts",
     "pipeline:votes": "tsx scripts/03-fetch-votes.ts",
     "pipeline:proposals": "tsx scripts/04-fetch-proposals.ts",
+    "pipeline:link": "tsx scripts/06-link-documents.ts",
     "pipeline:search": "tsx scripts/05-build-search-index.ts"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.9",
     "better-sqlite3": "^12.6.2",
     "clsx": "^2.1.1",
-    "daisyui": "^5.5.17",
     "framer-motion": "^12.31.0",
     "fuse.js": "^7.1.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "recharts": "^3.7.0",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {

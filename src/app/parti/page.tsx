@@ -6,66 +6,72 @@ import PartyBadge from "@/components/party/PartyBadge";
 
 export const metadata: Metadata = {
   title: "Partier",
-  description: "Oversikt over alla riksdagspartier och deras ledamoter.",
+  description: "Utforska riksdagens åtta partier och deras ledamöter",
 };
 
+interface PartyStats {
+  parti: string;
+  memberCount: number;
+}
+
 /**
- * Fetches the number of members per party from the database.
- * @returns Record mapping party codes to their member count
+ * Fetches party statistics from the database.
+ * @returns Array of party codes with their member counts
  */
-function getPartyCounts(): Record<string, number> {
+function getPartyStats(): PartyStats[] {
+  const db = getDb();
   try {
-    const db = getDb();
-    const rows = db
-      .prepare("SELECT parti, COUNT(*) as count FROM members GROUP BY parti")
-      .all() as { parti: string; count: number }[];
+    const stats = db
+      .prepare(
+        `SELECT parti, COUNT(*) as memberCount
+         FROM members
+         GROUP BY parti
+         ORDER BY memberCount DESC`
+      )
+      .all() as PartyStats[];
+    return stats;
+  } finally {
     db.close();
-    const counts: Record<string, number> = {};
-    for (const row of rows) {
-      counts[row.parti] = row.count;
-    }
-    return counts;
-  } catch (error) {
-    console.error("Failed to fetch party counts:", error);
-    return {};
   }
 }
 
 /**
- * Party overview page listing all 8 riksdag parties.
- * Shows each party's color, name, and number of members.
+ * Party overview page displaying a grid of all 8 parties.
  */
 export default function PartiPage() {
-  const counts = getPartyCounts();
+  const partyStats = getPartyStats();
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-base-content mb-2">Partier</h1>
-      <p className="text-base-content/60 mb-8">
-        Alla riksdagspartier under mandatperioden 2022-2026.
-      </p>
+    <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          Partier
+        </h1>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Utforska riksdagens åtta partier och se deras ledamöter och rösthistorik.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Object.entries(PARTIES).map(([code, info]) => (
-          <Link
-            key={code}
-            href={`/parti/${code}`}
-            className="flex items-center gap-4 p-6 rounded-lg border border-base-200 bg-base-100 hover:bg-base-200 transition-colors"
-          >
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
-              style={{ backgroundColor: info.hex, color: code === "M" || code === "SD" || code === "MP" ? "#111" : "#fff" }}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {partyStats.map(({ parti, memberCount }) => {
+          const party = PARTIES[parti];
+          if (!party) return null;
+          return (
+            <Link
+              key={parti}
+              href={`/parti/${parti.toLowerCase()}`}
+              className="group relative flex flex-col items-center rounded-lg bg-white dark:bg-zinc-900 p-6 ring-1 ring-zinc-200 dark:ring-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:ring-zinc-300 dark:hover:ring-zinc-600 hover:shadow-md transition-all"
             >
-              {code}
-            </div>
-            <div>
-              <h2 className="font-semibold text-base-content">{info.name}</h2>
-              <p className="text-sm text-base-content/60">
-                {counts[code] || 0} ledamoter
+              <PartyBadge parti={parti} size="lg" />
+              <h2 className="mt-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                {party.name}
+              </h2>
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                {memberCount} ledamöter
               </p>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

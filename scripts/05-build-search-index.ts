@@ -4,7 +4,7 @@ import { openDb, createSchema } from "./db.js";
 
 interface SearchEntry {
   id: string;
-  type: "ledamot" | "votering" | "amne";
+  type: "ledamot" | "votering" | "amne" | "motion" | "proposition";
   label: string;
   sublabel: string;
   url: string;
@@ -133,7 +133,64 @@ function buildSearchIndex(): void {
   }
   console.log(`[05] Added ${events.length} voting events to index`);
 
-  // 3. Topics (committees)
+  // 3. Motions
+  const motions = db
+    .prepare(
+      `SELECT dok_id, beteckning, rm, titel, datum, parti FROM motions ORDER BY datum DESC`
+    )
+    .all() as {
+    dok_id: string;
+    beteckning: string;
+    rm: string;
+    titel: string;
+    datum: string | null;
+    parti: string | null;
+  }[];
+
+  for (const m of motions) {
+    const sublabel = m.parti
+      ? `${m.datum || m.rm} – ${m.parti} motion`
+      : `${m.datum || m.rm} – Enskild motion`;
+    entries.push({
+      id: `mot-${m.dok_id}`,
+      type: "motion",
+      label: m.titel || m.beteckning,
+      sublabel,
+      url: `https://www.riksdagen.se/sv/dokument-och-lagar/dokument/motion/${m.beteckning.toLowerCase().replace(/\s/g, "-")}`,
+      parti: m.parti || undefined,
+    });
+  }
+  console.log(`[05] Added ${motions.length} motions to index`);
+
+  // 4. Propositions
+  const propositions = db
+    .prepare(
+      `SELECT dok_id, beteckning, rm, titel, datum, departement FROM propositions ORDER BY datum DESC`
+    )
+    .all() as {
+    dok_id: string;
+    beteckning: string;
+    rm: string;
+    titel: string;
+    datum: string | null;
+    departement: string | null;
+  }[];
+
+  for (const p of propositions) {
+    const sublabel = p.departement
+      ? `${p.datum || p.rm} – ${p.departement}`
+      : `${p.datum || p.rm} – Proposition`;
+    entries.push({
+      id: `prop-${p.dok_id}`,
+      type: "proposition",
+      label: p.titel || p.beteckning,
+      sublabel,
+      url: `https://www.riksdagen.se/sv/dokument-och-lagar/dokument/proposition/${p.beteckning.toLowerCase().replace(/\s/g, "-")}`,
+    });
+  }
+  console.log(`[05] Added ${propositions.length} propositions to index`);
+
+  // 5. Topics (committees)
   for (const [code, name] of Object.entries(COMMITTEE_NAMES)) {
     const slug = COMMITTEE_SLUGS[code] || code.toLowerCase();
     entries.push({

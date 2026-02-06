@@ -69,7 +69,7 @@ export const COMMITTEE_MAP: Record<string, CommitteeInfo> = {
     icon: ScrollText,
   },
   MJU: {
-    name: "Miljö & Jordbruk",
+    name: "Miljö och jordbruk",
     slug: "miljo-jordbruk",
     description: "Miljöpolitik, klimat, jordbruk och livsmedel",
     icon: Leaf,
@@ -140,6 +140,7 @@ export const PARTIES: Record<string, PartyInfo> = {
   C: { name: "Centerpartiet", hex: "#009933", bg: "bg-[#009933]", text: "text-white" },
   MP: { name: "Miljöpartiet", hex: "#83CF39", bg: "bg-[#83CF39]", text: "text-gray-900" },
   V: { name: "Vänsterpartiet", hex: "#DA291C", bg: "bg-[#DA291C]", text: "text-white" },
+  "-": { name: "Partilös", hex: "#71717A", bg: "bg-zinc-500", text: "text-white" },
 };
 
 /** Parliamentary sessions in the 2022-2026 mandate period. */
