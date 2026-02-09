@@ -47,7 +47,6 @@ export interface VotingEvent {
   avstar: number;
   franvarande: number;
   datum: string | null;
-  summary: string | null;
 }
 
 /** A single MP's vote on a voting event. */

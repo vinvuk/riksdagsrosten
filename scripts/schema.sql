@@ -75,8 +75,7 @@ CREATE TABLE IF NOT EXISTS voting_events (
   nej         INTEGER DEFAULT 0,
   avstar      INTEGER DEFAULT 0,
   franvarande INTEGER DEFAULT 0,
-  datum       DATE,
-  summary     TEXT
+  datum       DATE
 );
 
 -- Votes table

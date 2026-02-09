@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getDb, convertDates } from "@/lib/db";
 import { COMMITTEE_MAP } from "@/lib/constants";
@@ -255,23 +255,6 @@ export default async function VoteringDetailPage({
         </h1>
         <VoteOutcomeBadge ja={votingEvent.ja} nej={votingEvent.nej} />
       </div>
-
-      {/* AI summary */}
-      {votingEvent.summary && (
-        <div className="mt-6 rounded-lg bg-blue-50 dark:bg-blue-500/10 p-4 ring-1 ring-blue-200 dark:ring-blue-500/20">
-          <div className="flex items-start gap-3">
-            <Sparkles className="size-5 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                Sammanfattning
-              </p>
-              <p className="mt-1 text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
-                {votingEvent.summary}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Metadata card */}
       <div className="mt-6 overflow-hidden bg-white dark:bg-zinc-900 rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-700">
