@@ -279,6 +279,9 @@ export default function PartyComparisonClient({
           <p className="mt-2 text-4xl font-bold text-zinc-900 dark:text-zinc-100">
             {agreementRate}%
           </p>
+          <p className="mt-1 text-[10px] text-zinc-400 dark:text-zinc-500 leading-tight">
+            Andel voteringar där partierna intog samma ställning
+          </p>
         </div>
         <div className="rounded-lg bg-white dark:bg-zinc-900 p-4 ring-1 ring-zinc-200 dark:ring-zinc-700 flex items-center justify-center">
           <div className="w-24 h-24">

@@ -46,7 +46,7 @@ export default async function AmnePage() {
           Ämnen
         </h1>
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          Utforska voteringar efter utskott och ämnesområde.
+          Voteringar grupperade efter riksdagens utskott. Varje utskott ansvarar för ett specifikt politikområde.
         </p>
       </div>
 

@@ -121,7 +121,7 @@ export default async function HomePage() {
           Välkommen till Riksdagsrösten
         </h1>
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          Utforska voteringar, ledamöter och partier i Sveriges riksdag.
+          Utforska voteringar, ledamöter och partier i Sveriges riksdag under mandatperioden 2022–2026.
         </p>
       </div>
 

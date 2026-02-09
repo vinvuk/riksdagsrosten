@@ -38,6 +38,8 @@ function formatMonth(month: string): string {
  * @param data - Array of monthly vote data
  */
 export default function VoteTrendChart({ data }: VoteTrendChartProps) {
+  if (!data || data.length === 0) return null;
+
   // Show every Nth label to avoid crowding
   const tickInterval = Math.max(1, Math.floor(data.length / 8));
 

@@ -14,8 +14,15 @@ interface VoteOutcomeBadgeProps {
 export default function VoteOutcomeBadge({ ja, nej }: VoteOutcomeBadgeProps) {
   const outcome = ja > nej ? "bifall" : nej > ja ? "avslag" : "lika";
 
+  const titles: Record<string, string> = {
+    bifall: "Förslaget bifölls — fler röstade ja än nej",
+    avslag: "Förslaget avslogs — fler röstade nej än ja",
+    lika: "Lika antal ja- och nej-röster",
+  };
+
   return (
     <span
+      title={titles[outcome]}
       className={cn(
         "inline-flex items-center gap-x-1.5 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
         outcome === "bifall" &&

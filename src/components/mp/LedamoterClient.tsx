@@ -68,6 +68,15 @@ export default function LedamoterClient({ members }: LedamoterClientProps) {
 
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          Ledamöter
+        </h1>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Aktiva riksdagsledamöter under mandatperioden 2022–2026. Sök på namn eller filtrera efter parti.
+        </p>
+      </div>
+
       {/* Search input */}
       <InputGroup>
         <Search data-slot="icon" />

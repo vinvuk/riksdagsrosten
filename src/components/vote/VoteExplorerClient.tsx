@@ -121,6 +121,15 @@ export default function VoteExplorerClient({
 
   return (
     <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          Voteringar
+        </h1>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Samtliga {votingEvents.length.toLocaleString("sv-SE")} voteringar i riksdagen under mandatperioden 2022–2026. Filtrera efter riksmöte, utskott eller sök på rubrik.
+        </p>
+      </div>
+
       {/* Search input */}
       <InputGroup>
         <Search data-slot="icon" />

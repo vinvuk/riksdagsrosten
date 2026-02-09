@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Search, Users, Vote } from "lucide-react";
+import { Home, Users, Vote } from "lucide-react";
 import { Button } from "@/components/catalyst/button";
 
 /**
@@ -17,14 +17,10 @@ export default function NotFound() {
           Sidan du letar efter finns inte eller har flyttats. Använd länkarna nedan för att navigera.
         </p>
 
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="mt-8">
           <Button href="/" color="blue">
             <Home data-slot="icon" />
             Till startsidan
-          </Button>
-          <Button href="/sok" plain>
-            <Search data-slot="icon" />
-            Sök
           </Button>
         </div>
 

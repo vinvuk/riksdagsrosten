@@ -16,7 +16,8 @@
     "pipeline:proposals": "tsx scripts/04-fetch-proposals.ts",
     "pipeline:link": "tsx scripts/06-link-documents.ts",
     "pipeline:search": "tsx scripts/05-build-search-index.ts",
-    "migrate:neon": "tsx scripts/migrate-to-neon.ts"
+    "migrate:neon": "tsx scripts/migrate-to-neon.ts",
+    "generate:summaries": "tsx scripts/07-generate-summaries.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

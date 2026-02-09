@@ -106,7 +106,7 @@ async function getMemberData(memberId: string) {
     avstar: Number(statsRow?.avstar) || 0,
     franvarande: Number(statsRow?.franvarande) || 0,
     attendance: Number(statsRow?.totalvotes) > 0
-      ? Math.round(((Number(statsRow.totalvotes) - (Number(statsRow.franvarande) || 0)) / Number(statsRow.totalvotes)) * 100)
+      ? Math.round(((Number(statsRow?.totalvotes) - (Number(statsRow?.franvarande) || 0)) / Number(statsRow?.totalvotes)) * 100)
       : 0,
   };
 
@@ -321,11 +321,17 @@ export default async function LedamotDetailPage({
             <p className="mt-1 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
               {stats.attendance}%
             </p>
+            <p className="mt-1 text-[10px] text-zinc-400 dark:text-zinc-500 leading-tight">
+              Andel voteringar där ledamoten deltog
+            </p>
           </div>
           <div className="rounded-lg bg-white dark:bg-zinc-900 p-4 ring-1 ring-zinc-200 dark:ring-zinc-700">
             <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Partilojalitet</p>
             <p className="mt-1 text-xl font-semibold text-blue-600 dark:text-blue-400">
               {loyaltyScore}%
+            </p>
+            <p className="mt-1 text-[10px] text-zinc-400 dark:text-zinc-500 leading-tight">
+              Andel gånger ledamoten röstade med partiets majoritet
             </p>
           </div>
         </div>

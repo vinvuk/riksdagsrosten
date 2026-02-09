@@ -41,7 +41,7 @@ export default async function PartiPage() {
           Partier
         </h1>
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          Utforska riksdagens åtta partier och se deras ledamöter och rösthistorik.
+          Riksdagens partier under mandatperioden 2022–2026. Klicka på ett parti för att se ledamöter och rösthistorik.
         </p>
       </div>
 
